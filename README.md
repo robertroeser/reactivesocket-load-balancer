@@ -4,11 +4,11 @@ This is an implementation of ReactiveSocket over WebSockets using RxNetty.
 
 ## Master Build Status
 
-<a href='https://travis-ci.org/ReactiveSocket/reactivesocket-websockets-rxnetty/builds'><img src='https://travis-ci.org/ReactiveSocket/reactivesocket-websockets-rxnetty.svg?branch=master'></a>
+<a href='https://travis-ci.org/ReactiveSocket/reactivesocket-websocket-rxnetty/builds'><img src='https://travis-ci.org/ReactiveSocket/reactivesocket-websocket-rxnetty.svg?branch=master'></a>
 
 ## Bugs and Feedback
 
-For bugs, questions and discussions please use the [Github Issues](https://github.com/ReactiveSocket/reactivesocket-websockets-rxnetty/issues).
+For bugs, questions and discussions please use the [Github Issues](https://github.com/ReactiveSocket/reactivesocket-websocket-rxnetty/issues).
 
  
 ## LICENSE
