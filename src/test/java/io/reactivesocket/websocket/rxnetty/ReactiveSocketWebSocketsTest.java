@@ -13,13 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.reactivesocket.rxnetty.websockets;
+package io.reactivesocket.websocket.rxnetty;
 
 import static rx.Observable.*;
 
 import org.junit.Test;
 
 import io.netty.buffer.ByteBuf;
+import io.reactivesocket.websocket.rxnetty.ReactiveSocketWebSockets;
 import io.reactivex.netty.protocol.http.client.HttpClient;
 import io.reactivex.netty.protocol.http.server.HttpServer;
 import rx.Single;

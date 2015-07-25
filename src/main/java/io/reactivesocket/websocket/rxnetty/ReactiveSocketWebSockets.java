@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.reactivesocket.rxnetty.websockets;
+package io.reactivesocket.websocket.rxnetty;
 
 import static rx.Observable.*;
 import static rx.RxReactiveStreams.*;
