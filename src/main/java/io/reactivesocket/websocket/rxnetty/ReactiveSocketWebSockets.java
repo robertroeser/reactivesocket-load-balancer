@@ -25,6 +25,7 @@ import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
 import io.reactivesocket.DuplexConnection;
 import io.reactivesocket.Message;
 import io.reactivesocket.ReactiveSocketServerProtocol;
+import io.reactivesocket.RequestHandler;
 import io.reactivex.netty.protocol.http.ws.WebSocketConnection;
 import rx.Observable;
 import rx.Single;
@@ -36,82 +37,105 @@ import rx.functions.Func1;
  * Use this ReactiveSocketWebSockets with an RxNetty server similar to below.
  * 
  * <pre>
- *  {@code
+ * {@code
  *	ReactiveSocketWebSockets handler = ReactiveSocketWebSockets.create(
- *			request -> {
- *				// handler logic for request/response (return a Single)
- *				return Single.just("hello" + request);
- *			},
- *			request -> {
- *				// handler logic for request/stream (return an Observable)
- *				return just("a_" + request, "b_" + request);
- *			});
+ * request -> {
+ * // handler logic for request/response (return a Single)
+ * return Single.just("hello" + request);
+ * },
+ * request -> {
+ * // handler logic for request/stream (return an Observable)
+ * return just("a_" + request, "b_" + request);
+ * });
  *
- *	// start server with protocol
- *	HttpServer.newServer().start((request, response) -> {
- *		return response.acceptWebSocketUpgrade(handler::acceptWebsocket);
- *	});
+ * // start server with protocol
+ * HttpServer.newServer().start((request, response) -> {
+ * return response.acceptWebSocketUpgrade(handler::acceptWebsocket);
+ * });
  * </pre>
  */
 public class ReactiveSocketWebSockets {
 
-	private final ReactiveSocketServerProtocol rsProtocol;
+    private final ReactiveSocketServerProtocol rsProtocol;
 
-	Func1<String, Single<String>> requestResponseHandler;
-	Func1<String, Observable<String>> requestStreamHandler;
+    private ReactiveSocketWebSockets(
+            Func1<String, Single<String>> requestResponseHandler,
+            Func1<String, Observable<String>> requestStreamHandler,
+            Func1<String, Observable<String>> requestSubscriptionHandler,
+            Func1<String, Observable<Void>> fireAndForgetHandler) {
+        this(new RequestHandler() {
 
-	private ReactiveSocketWebSockets(
-			Func1<String, Single<String>> requestResponseHandler,
-			Func1<String, Observable<String>> requestStreamHandler) {
-		this.requestResponseHandler = requestResponseHandler;
-		this.requestStreamHandler = requestStreamHandler;
-		// instantiate the ServerProtocol with handler converters from Observable to Publisher
-		this.rsProtocol = ReactiveSocketServerProtocol.create(this::handleRequestResponse, this::handleRequestStream);
-	}
+            @Override
+            public Publisher<String> handleRequestResponse(String request) {
+                return toPublisher(requestResponseHandler.call(request).toObservable());
+            }
 
-	public static ReactiveSocketWebSockets create(
-			Func1<String, Single<String>> requestResponseHandler,
-			Func1<String, Observable<String>> requestStreamHandler) {
-		return new ReactiveSocketWebSockets(requestResponseHandler, requestStreamHandler);
-	}
+            @Override
+            public Publisher<String> handleRequestStream(String request) {
+                return toPublisher(requestStreamHandler.call(request));
+            }
 
-	/**
-	 * Use this method as the RxNetty HttpServer WebSocket handler.
-	 * 
-	 * @param ws
-	 * @return
-	 */
-	public Observable<Void> acceptWebsocket(WebSocketConnection ws) {
-		return toObservable(rsProtocol.acceptConnection(new DuplexConnection() {
+            @Override
+            public Publisher<String> handleRequestSubscription(String request) {
+                return toPublisher(requestSubscriptionHandler.call(request));
+            }
 
-			@Override
-			public Publisher<Message> getInput() {
-				return toPublisher(ws.getInput().map(frame -> {
-					// TODO is this copying bytes?
-					try {
-						return Message.from(frame.content().nioBuffer());
-					} catch (Exception e) {
-						e.printStackTrace();
-						throw new RuntimeException(e);
-					}
-				}));
-			}
+            @Override
+            public Publisher<Void> handleFireAndForget(String request) {
+                return toPublisher(fireAndForgetHandler.call(request));
+            }
 
-			@Override
-			public Publisher<Void> write(Message o) {
-				// BinaryWebSocketFrame frame = new BinaryWebSocketFrame(Unpooled.wrappedBuffer(o.getBytes()));
-				TextWebSocketFrame frame = new TextWebSocketFrame(Unpooled.wrappedBuffer(o.getBytes()));
-				return toPublisher(ws.write(just(frame)));
-			}
+        });
+    }
 
-		}));
-	}
+    private ReactiveSocketWebSockets(RequestHandler requestHandler) {
+        // instantiate the ServerProtocol with handler converters from Observable to Publisher
+        this.rsProtocol = ReactiveSocketServerProtocol.create(requestHandler);
+    }
 
-	private Publisher<String> handleRequestResponse(String request) {
-		return toPublisher(requestResponseHandler.call(request).toObservable());
-	}
+    public static ReactiveSocketWebSockets create(
+            Func1<String, Single<String>> requestResponseHandler,
+            Func1<String, Observable<String>> requestStreamHandler,
+            Func1<String, Observable<String>> requestSubscriptionHandler,
+            Func1<String, Observable<Void>> fireAndForgetHandler) {
+        return new ReactiveSocketWebSockets(requestResponseHandler, requestStreamHandler, requestSubscriptionHandler, fireAndForgetHandler);
+    }
 
-	private Publisher<String> handleRequestStream(String request) {
-		return toPublisher(requestStreamHandler.call(request));
-	}
+    public static ReactiveSocketWebSockets create(RequestHandler handler) {
+        return new ReactiveSocketWebSockets(handler);
+    }
+
+    /**
+     * Use this method as the RxNetty HttpServer WebSocket handler.
+     * 
+     * @param ws
+     * @return
+     */
+    public Observable<Void> acceptWebsocket(WebSocketConnection ws) {
+        return toObservable(rsProtocol.acceptConnection(new DuplexConnection() {
+
+            @Override
+            public Publisher<Message> getInput() {
+                return toPublisher(ws.getInput().map(frame -> {
+                    // TODO is this copying bytes?
+                    try {
+                        return Message.from(frame.content().nioBuffer());
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        throw new RuntimeException(e);
+                    }
+                }));
+            }
+
+            @Override
+            public Publisher<Void> write(Publisher<Message> o) {
+                return toPublisher(ws.write(toObservable(o).map(m -> {
+                    // return new BinaryWebSocketFrame(Unpooled.wrappedBuffer(m.getBytes()));
+                    return new TextWebSocketFrame(Unpooled.wrappedBuffer(m.getBytes()));
+                })));
+            }
+
+        }));
+    }
+
 }

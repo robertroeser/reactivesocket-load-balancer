@@ -27,29 +27,29 @@ import rx.Single;
 
 public class ReactiveSocketWebSocketsTest {
 
-	@Test
-	public void test() {
-		// create protocol with handlers
-		ReactiveSocketWebSockets handler = ReactiveSocketWebSockets.create(
-				request -> {
-					return Single.just("hello" + request);
-				} , request -> {
-					return just("a_" + request, "b_" + request);
-				});
+    @Test
+    public void test() {
+        // create protocol with handlers
+        ReactiveSocketWebSockets handler = ReactiveSocketWebSockets.create(
+                requestResponse -> {
+                    return Single.just("hello" + requestResponse);
+                } ,
+                requestStream -> {
+                    return just("a_" + requestStream, "b_" + requestStream);
+                } , null, null);
 
-		// start server with protocol
-		HttpServer<ByteBuf, ByteBuf> server = HttpServer.newServer();
-		int port = server.getServerPort();
-		server.start((request, response) -> {
-			return response.acceptWebSocketUpgrade(handler::acceptWebsocket);
-		});
-		
+        // start server with protocol
+        HttpServer<ByteBuf, ByteBuf> server = HttpServer.newServer();
+        int port = server.getServerPort();
+        server.start((request, response) -> {
+            return response.acceptWebSocketUpgrade(handler::acceptWebsocket);
+        });
 
-		// TODO send actual requests
-		HttpClient.newClient("localhost", server.getServerPort())
-		.createGet("/")
-		.requestWebSocketUpgrade();
-		
-		server.shutdown();
-	}
+        // TODO send actual requests
+        HttpClient.newClient("localhost", server.getServerPort())
+                .createGet("/")
+                .requestWebSocketUpgrade();
+
+        server.shutdown();
+    }
 }
