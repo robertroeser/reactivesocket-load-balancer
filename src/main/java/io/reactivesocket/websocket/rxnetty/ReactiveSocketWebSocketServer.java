@@ -38,15 +38,7 @@ import rx.functions.Func1;
  * 
  * <pre>
  * {@code
- *	ReactiveSocketWebSockets handler = ReactiveSocketWebSockets.create(
- * request -> {
- * // handler logic for request/response (return a Single)
- * return Single.just("hello" + request);
- * },
- * request -> {
- * // handler logic for request/stream (return an Observable)
- * return just("a_" + request, "b_" + request);
- * });
+ *	ReactiveSocketWebSocketServer handler = ReactiveSocketWebSocketServer.create(handler);
  *
  * // start server with protocol
  * HttpServer.newServer().start((request, response) -> {
@@ -54,11 +46,11 @@ import rx.functions.Func1;
  * });
  * </pre>
  */
-public class ReactiveSocketWebSockets {
+public class ReactiveSocketWebSocketServer {
 
     private final ReactiveSocketServerProtocol rsProtocol;
 
-    private ReactiveSocketWebSockets(
+    private ReactiveSocketWebSocketServer(
             Func1<String, Single<String>> requestResponseHandler,
             Func1<String, Observable<String>> requestStreamHandler,
             Func1<String, Observable<String>> requestSubscriptionHandler,
@@ -88,21 +80,21 @@ public class ReactiveSocketWebSockets {
         });
     }
 
-    private ReactiveSocketWebSockets(RequestHandler requestHandler) {
+    private ReactiveSocketWebSocketServer(RequestHandler requestHandler) {
         // instantiate the ServerProtocol with handler converters from Observable to Publisher
         this.rsProtocol = ReactiveSocketServerProtocol.create(requestHandler);
     }
 
-    public static ReactiveSocketWebSockets create(
+    public static ReactiveSocketWebSocketServer create(
             Func1<String, Single<String>> requestResponseHandler,
             Func1<String, Observable<String>> requestStreamHandler,
             Func1<String, Observable<String>> requestSubscriptionHandler,
             Func1<String, Observable<Void>> fireAndForgetHandler) {
-        return new ReactiveSocketWebSockets(requestResponseHandler, requestStreamHandler, requestSubscriptionHandler, fireAndForgetHandler);
+        return new ReactiveSocketWebSocketServer(requestResponseHandler, requestStreamHandler, requestSubscriptionHandler, fireAndForgetHandler);
     }
 
-    public static ReactiveSocketWebSockets create(RequestHandler handler) {
-        return new ReactiveSocketWebSockets(handler);
+    public static ReactiveSocketWebSocketServer create(RequestHandler handler) {
+        return new ReactiveSocketWebSocketServer(handler);
     }
 
     /**

@@ -20,17 +20,17 @@ import static rx.Observable.*;
 import org.junit.Test;
 
 import io.netty.buffer.ByteBuf;
-import io.reactivesocket.websocket.rxnetty.ReactiveSocketWebSockets;
+import io.reactivesocket.websocket.rxnetty.ReactiveSocketWebSocketServer;
 import io.reactivex.netty.protocol.http.client.HttpClient;
 import io.reactivex.netty.protocol.http.server.HttpServer;
 import rx.Single;
 
-public class ReactiveSocketWebSocketsTest {
+public class ReactiveSocketWebSocketServerTest {
 
     @Test
     public void test() {
         // create protocol with handlers
-        ReactiveSocketWebSockets handler = ReactiveSocketWebSockets.create(
+        ReactiveSocketWebSocketServer handler = ReactiveSocketWebSocketServer.create(
                 requestResponse -> {
                     return Single.just("hello" + requestResponse);
                 } ,
