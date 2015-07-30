@@ -49,7 +49,7 @@ public class ReactiveSocketWebSocketClient {
                         // TODO determine if that's expected or not
                         return toPublisher(wsConn.writeAndFlushOnEach(toObservable(o).map(m -> {
                             // return new BinaryWebSocketFrame(Unpooled.wrappedBuffer(m.getBytes()));
-                            return new TextWebSocketFrame(Unpooled.wrappedBuffer(m.getBytes()));
+                            return new TextWebSocketFrame(Unpooled.wrappedBuffer(m.getByteBuffer()));
                         })));
                     }
 

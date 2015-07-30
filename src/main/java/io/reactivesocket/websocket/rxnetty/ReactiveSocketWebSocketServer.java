@@ -122,7 +122,7 @@ public class ReactiveSocketWebSocketServer {
             public Publisher<Void> write(Publisher<Frame> o) {
                 return toPublisher(ws.write(toObservable(o).map(m -> {
                     // return new BinaryWebSocketFrame(Unpooled.wrappedBuffer(m.getBytes()));
-                    return new TextWebSocketFrame(Unpooled.wrappedBuffer(m.getBytes()));
+                    return new TextWebSocketFrame(Unpooled.wrappedBuffer(m.getByteBuffer()));
                 })));
             }
 
