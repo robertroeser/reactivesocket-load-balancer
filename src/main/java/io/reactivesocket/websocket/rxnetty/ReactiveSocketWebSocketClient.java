@@ -15,21 +15,18 @@
  */
 package io.reactivesocket.websocket.rxnetty;
 
-import static rx.RxReactiveStreams.toObservable;
-import static rx.RxReactiveStreams.toPublisher;
-
-import org.reactivestreams.Publisher;
-
 import io.netty.buffer.Unpooled;
 import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
 import io.reactivesocket.DuplexConnection;
-import io.reactivesocket.Message;
+import io.reactivesocket.Frame;
 import io.reactivesocket.ReactiveSocketClientProtocol;
-import io.reactivex.netty.protocol.http.client.HttpClient;
 import io.reactivex.netty.protocol.http.ws.WebSocketConnection;
-import io.reactivex.netty.protocol.http.ws.client.WebSocketResponse;
+import org.reactivestreams.Publisher;
 import rx.Observable;
 import rx.Single;
+
+import static rx.RxReactiveStreams.toObservable;
+import static rx.RxReactiveStreams.toPublisher;
 
 public class ReactiveSocketWebSocketClient {
 
@@ -40,14 +37,14 @@ public class ReactiveSocketWebSocketClient {
                 .create(new DuplexConnection() {
 
                     @Override
-                    public Publisher<Message> getInput() {
+                    public Publisher<Frame> getInput() {
                         return toPublisher(wsConn.getInput().map(frame -> {
-                            return Message.from(frame.content().nioBuffer());
+                            return Frame.from(frame.content().nioBuffer());
                         }));
                     }
 
                     @Override
-                    public Publisher<Void> write(Publisher<Message> o) {
+                    public Publisher<Void> write(Publisher<Frame> o) {
                         // had to use writeAndFlushOnEach instead of write for frames to get through
                         // TODO determine if that's expected or not
                         return toPublisher(wsConn.writeAndFlushOnEach(toObservable(o).map(m -> {

@@ -15,21 +15,20 @@
  */
 package io.reactivesocket.websocket.rxnetty;
 
-import static rx.Observable.*;
-import static rx.RxReactiveStreams.*;
-
-import org.reactivestreams.Publisher;
-
 import io.netty.buffer.Unpooled;
 import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
 import io.reactivesocket.DuplexConnection;
-import io.reactivesocket.Message;
+import io.reactivesocket.Frame;
 import io.reactivesocket.ReactiveSocketServerProtocol;
 import io.reactivesocket.RequestHandler;
 import io.reactivex.netty.protocol.http.ws.WebSocketConnection;
+import org.reactivestreams.Publisher;
 import rx.Observable;
 import rx.Single;
 import rx.functions.Func1;
+
+import static rx.RxReactiveStreams.toObservable;
+import static rx.RxReactiveStreams.toPublisher;
 
 /**
  * A ReactiveSocket handler for WebSockets in RxNetty.
@@ -107,11 +106,11 @@ public class ReactiveSocketWebSocketServer {
         return toObservable(rsProtocol.acceptConnection(new DuplexConnection() {
 
             @Override
-            public Publisher<Message> getInput() {
+            public Publisher<Frame> getInput() {
                 return toPublisher(ws.getInput().map(frame -> {
                     // TODO is this copying bytes?
                     try {
-                        return Message.from(frame.content().nioBuffer());
+                        return Frame.from(frame.content().nioBuffer());
                     } catch (Exception e) {
                         e.printStackTrace();
                         throw new RuntimeException(e);
@@ -120,7 +119,7 @@ public class ReactiveSocketWebSocketServer {
             }
 
             @Override
-            public Publisher<Void> write(Publisher<Message> o) {
+            public Publisher<Void> write(Publisher<Frame> o) {
                 return toPublisher(ws.write(toObservable(o).map(m -> {
                     // return new BinaryWebSocketFrame(Unpooled.wrappedBuffer(m.getBytes()));
                     return new TextWebSocketFrame(Unpooled.wrappedBuffer(m.getBytes()));
