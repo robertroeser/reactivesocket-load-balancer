@@ -17,6 +17,8 @@ package io.reactivesocket.websocket.rxnetty;
 
 import java.util.concurrent.TimeUnit;
 
+import io.netty.channel.ChannelOption;
+import io.netty.handler.logging.LogLevel;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -44,11 +46,11 @@ public class ClientServerTest {
                     return Observable.just(requestStream, "world");
                 } , null, null);
 
-        server = HttpServer.newServer().start((req, resp) -> {
+        server = HttpServer.newServer().clientChannelOption(ChannelOption.AUTO_READ, true).enableWireLogging(LogLevel.ERROR).start((req, resp) -> {
             return resp.acceptWebSocketUpgrade(serverHandler::acceptWebsocket);
         });
 
-        client = HttpClient.newClient("localhost", server.getServerPort())
+        client = HttpClient.newClient("localhost", server.getServerPort()).enableWireLogging(LogLevel.ERROR)
                 .createGet("/rs")
                 .requestWebSocketUpgrade()
                 .flatMap(WebSocketResponse::getWebSocketConnection)
@@ -66,7 +68,7 @@ public class ClientServerTest {
         client.flatMap(reactiveSocket -> {
             return reactiveSocket.requestResponse("hello").toObservable();
         }).subscribe(ts);
-        ts.awaitTerminalEvent(500, TimeUnit.MILLISECONDS);
+        ts.awaitTerminalEvent(5000000, TimeUnit.MILLISECONDS);
         ts.assertValue("hello world");
     }
 

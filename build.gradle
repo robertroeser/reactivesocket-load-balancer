@@ -16,7 +16,7 @@ repositories {
 }
 
 dependencies {
-	compile 'io.reactivex:rxjava:1.0.13'	
+	compile 'io.reactivex:rxjava:1.0.13'
 	compile 'io.reactivex:rxnetty:0.5.0-SNAPSHOT'
 	compile 'io.reactivesocket:reactivesocket:0.0.1-SNAPSHOT'
     testCompile 'junit:junit-dep:4.10'
