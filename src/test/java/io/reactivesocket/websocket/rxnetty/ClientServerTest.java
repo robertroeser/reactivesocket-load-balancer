@@ -68,7 +68,7 @@ public class ClientServerTest {
         client.flatMap(reactiveSocket -> {
             return reactiveSocket.requestResponse("hello").toObservable();
         }).subscribe(ts);
-        ts.awaitTerminalEvent(5000000, TimeUnit.MILLISECONDS);
+        ts.awaitTerminalEvent(500, TimeUnit.MILLISECONDS);
         ts.assertValue("hello world");
     }
 
