@@ -15,6 +15,7 @@
  */
 package io.reactivesocket.websocket.rxnetty;
 
+import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 
 import io.netty.channel.ChannelOption;
@@ -22,6 +23,7 @@ import io.netty.handler.logging.LogLevel;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import static io.reactivesocket.websocket.rxnetty.TestUtil.*;
 
 import io.netty.buffer.ByteBuf;
 import io.reactivex.netty.protocol.http.client.HttpClient;
@@ -33,64 +35,79 @@ import rx.observers.TestSubscriber;
 
 public class ClientServerTest {
 
-    static Observable<ReactiveSocketWebSocketClient> client;
-    static HttpServer<ByteBuf, ByteBuf> server;
+	static ReactiveSocketWebSocketClient client;
+	static HttpServer<ByteBuf, ByteBuf> server;
 
-    @BeforeClass
-    public static void setup() {
-        ReactiveSocketWebSocketServer serverHandler = ReactiveSocketWebSocketServer.create(
-                requestResponse -> {
-                    return Single.just(requestResponse + " world");
-                } ,
-                requestStream -> {
-                    return Observable.just(requestStream, "world");
-                } , null, null);
+	@BeforeClass
+	public static void setup() {
+		ReactiveSocketWebSocketServer serverHandler = ReactiveSocketWebSocketServer.create(
+				requestResponsePayload -> {
+					String requestResponse = byteToString(requestResponsePayload.getData());
+					return Single.just(utf8EncodedPayloadData(requestResponse + " world"));
+				} ,
+				requestStreamPayload -> {
+					String requestStream = byteToString(requestStreamPayload.getData());
+					return Observable.just(requestStream, "world").map(n -> utf8EncodedPayloadData(n));
+				} , null, null);
 
-        server = HttpServer.newServer().clientChannelOption(ChannelOption.AUTO_READ, true).enableWireLogging(LogLevel.ERROR).start((req, resp) -> {
-            return resp.acceptWebSocketUpgrade(serverHandler::acceptWebsocket);
-        });
+		server = HttpServer.newServer()
+//				.clientChannelOption(ChannelOption.AUTO_READ, true)
+//				.enableWireLogging(LogLevel.ERROR)
+				.start((req, resp) -> {
+					return resp.acceptWebSocketUpgrade(serverHandler::acceptWebsocket);
+				});
 
-        client = HttpClient.newClient("localhost", server.getServerPort()).enableWireLogging(LogLevel.ERROR)
-                .createGet("/rs")
-                .requestWebSocketUpgrade()
-                .flatMap(WebSocketResponse::getWebSocketConnection)
-                .map(ReactiveSocketWebSocketClient::create);
-    }
+		client = HttpClient.newClient("localhost", server.getServerPort()).enableWireLogging(LogLevel.ERROR)
+				.createGet("/rs")
+				.requestWebSocketUpgrade()
+				.flatMap(WebSocketResponse::getWebSocketConnection)
+				.map(ReactiveSocketWebSocketClient::create)
+				.toBlocking().single();
 
-    @AfterClass
-    public static void tearDown() {
-        server.shutdown();
-    }
+		client.connect()
+				.subscribe(v -> {}, t -> t.printStackTrace());
+	}
 
-    @Test
-    public void testRequestResponse() {
-        TestSubscriber<String> ts = TestSubscriber.create();
-        client.flatMap(reactiveSocket -> {
-            return reactiveSocket.requestResponse("hello").toObservable();
-        }).subscribe(ts);
-        ts.awaitTerminalEvent(500, TimeUnit.MILLISECONDS);
-        ts.assertValue("hello world");
-    }
+	@AfterClass
+	public static void tearDown() {
+		server.shutdown();
+	}
 
-    @Test
-    public void testRequestResponseMultiple() {
-        TestSubscriber<String> ts = TestSubscriber.create();
-        client.flatMap(reactiveSocket -> {
-            return reactiveSocket.requestResponse("hello")
-                    .mergeWith(reactiveSocket.requestResponse("hi"));
-        }).subscribe(ts);
-        ts.awaitTerminalEvent(500, TimeUnit.MILLISECONDS);
-        ts.assertValues("hello world", "hi world");
-    }
+	@Test
+	public void testRequestResponse() {
+		TestSubscriber<String> ts = TestSubscriber.create();
+		client.requestResponse(utf8EncodedPayloadData("hello"))
+				.map(payload -> byteToString(payload.getData()))
+				.subscribe(ts);
+		ts.awaitTerminalEvent(1500, TimeUnit.MILLISECONDS);
+		ts.assertNoErrors();
+		ts.assertCompleted();
+		ts.assertValue("hello world");
+	}
 
-    @Test
-    public void testRequestStream() {
-        TestSubscriber<String> ts = TestSubscriber.create();
-        client.flatMap(reactiveSocket -> {
-            return reactiveSocket.requestStream("hello");
-        }).subscribe(ts);
-        ts.awaitTerminalEvent(500, TimeUnit.MILLISECONDS);
-        ts.assertValues("hello", "world");
-    }
+	@Test
+	public void testRequestResponseMultiple() {
+		TestSubscriber<String> ts = TestSubscriber.create();
+		client.requestResponse(utf8EncodedPayloadData("hello"))
+				.mergeWith(client.requestResponse(utf8EncodedPayloadData("hi")))
+				.map(payload -> byteToString(payload.getData()))
+				.subscribe(ts);
+		ts.awaitTerminalEvent(1500, TimeUnit.MILLISECONDS);
+		ts.assertNoErrors();
+		ts.assertCompleted();
+		ts.assertValues("hello world", "hi world");
+	}
+
+	@Test
+	public void testRequestStream() {
+		TestSubscriber<String> ts = TestSubscriber.create();
+		client.requestStream(utf8EncodedPayloadData("hello"))
+				.map(payload -> byteToString(payload.getData()))
+				.subscribe(ts);
+		ts.awaitTerminalEvent(1500, TimeUnit.MILLISECONDS);
+		ts.assertNoErrors();
+		ts.assertCompleted();
+		ts.assertValues("hello", "world");
+	}
 
 }

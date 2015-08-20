@@ -18,6 +18,7 @@ package io.reactivesocket.websocket.rxnetty;
 import static rx.Observable.*;
 
 import org.junit.Test;
+import static io.reactivesocket.websocket.rxnetty.TestUtil.*;
 
 import io.netty.buffer.ByteBuf;
 import io.reactivesocket.websocket.rxnetty.ReactiveSocketWebSocketServer;
@@ -31,11 +32,13 @@ public class ReactiveSocketWebSocketServerTest {
     public void test() {
         // create protocol with handlers
         ReactiveSocketWebSocketServer handler = ReactiveSocketWebSocketServer.create(
-                requestResponse -> {
-                    return Single.just("hello" + requestResponse);
+        		requestResponsePayload -> {
+                	String requestResponse = byteToString(requestResponsePayload.getData()); 
+                    return Single.just(utf8EncodedPayloadData("hello" + requestResponse));
                 } ,
-                requestStream -> {
-                    return just("a_" + requestStream, "b_" + requestStream);
+        		requestStreamPayload -> {
+                	String requestStream = byteToString(requestStreamPayload.getData());
+                    return just("a_" + requestStream, "b_" + requestStream).map(n -> utf8EncodedPayloadData(n));
                 } , null, null);
 
         // start server with protocol

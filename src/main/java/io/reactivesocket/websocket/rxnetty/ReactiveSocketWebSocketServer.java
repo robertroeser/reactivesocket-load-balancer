@@ -16,6 +16,7 @@
 package io.reactivesocket.websocket.rxnetty;
 
 import io.netty.buffer.Unpooled;
+import io.netty.handler.codec.http.websocketx.BinaryWebSocketFrame;
 import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
 import io.reactivesocket.*;
 import io.reactivex.netty.protocol.http.ws.WebSocketConnection;
@@ -46,51 +47,51 @@ import static rx.RxReactiveStreams.toPublisher;
 public class ReactiveSocketWebSocketServer {
 
     private final RequestHandler requestHandler;
+	private final ReactiveSocket reactiveSocket;
 
-    private ReactiveSocketWebSocketServer(
-            Func1<String, Single<String>> requestResponseHandler,
-            Func1<String, Observable<String>> requestStreamHandler,
-            Func1<String, Observable<String>> requestSubscriptionHandler,
-            Func1<String, Observable<Void>> fireAndForgetHandler) {
-        this(new RequestHandler() {
+    private ReactiveSocketWebSocketServer(ReactiveSocket reactiveSocket, RequestHandler requestHandler) {
+        this.requestHandler = requestHandler;
+        this.reactiveSocket = reactiveSocket;
+    }
+
+    public static ReactiveSocketWebSocketServer create(
+            Func1<Payload, Single<Payload>> requestResponseHandler,
+            Func1<Payload, Observable<Payload>> requestStreamHandler,
+            Func1<Payload, Observable<Payload>> requestSubscriptionHandler,
+            Func1<Payload, Observable<Void>> fireAndForgetHandler) {
+    	
+    	RequestHandler handler = new RequestHandler() {
 
             @Override
-            public Publisher<String> handleRequestResponse(String request) {
+            public Publisher<Payload> handleRequestResponse(Payload request) {
                 return toPublisher(requestResponseHandler.call(request).toObservable());
             }
 
             @Override
-            public Publisher<String> handleRequestStream(String request) {
+            public Publisher<Payload> handleRequestStream(Payload request) {
                 return toPublisher(requestStreamHandler.call(request));
             }
 
             @Override
-            public Publisher<String> handleRequestSubscription(String request) {
+            public Publisher<Payload> handleRequestSubscription(Payload request) {
                 return toPublisher(requestSubscriptionHandler.call(request));
             }
 
             @Override
-            public Publisher<Void> handleFireAndForget(String request) {
+            public Publisher<Void> handleFireAndForget(Payload request) {
                 return toPublisher(fireAndForgetHandler.call(request));
             }
 
-        });
-    }
-
-    private ReactiveSocketWebSocketServer(RequestHandler requestHandler) {
-        this.requestHandler = requestHandler;
-    }
-
-    public static ReactiveSocketWebSocketServer create(
-            Func1<String, Single<String>> requestResponseHandler,
-            Func1<String, Observable<String>> requestStreamHandler,
-            Func1<String, Observable<String>> requestSubscriptionHandler,
-            Func1<String, Observable<Void>> fireAndForgetHandler) {
-        return new ReactiveSocketWebSocketServer(requestResponseHandler, requestStreamHandler, requestSubscriptionHandler, fireAndForgetHandler);
+        };
+        
+        ReactiveSocket rs = ReactiveSocket.createResponderAndRequestor(handler);
+    	
+        return new ReactiveSocketWebSocketServer(rs, handler);
     }
 
     public static ReactiveSocketWebSocketServer create(RequestHandler handler) {
-        return new ReactiveSocketWebSocketServer(handler);
+    	ReactiveSocket rs = ReactiveSocket.createResponderAndRequestor(handler);
+        return new ReactiveSocketWebSocketServer(rs, handler);
     }
 
     /**
@@ -100,35 +101,27 @@ public class ReactiveSocketWebSocketServer {
      * @return
      */
     public Observable<Void> acceptWebsocket(WebSocketConnection ws) {
-        final Publisher<Void> publisher = ReactiveSocket.accept(new DuplexConnection()
-        {
-            @Override
-            public Publisher<Frame> getInput()
-            {
-                return toPublisher(ws.getInput().map(frame -> {
-                    // TODO is this copying bytes?
-                    try
-                    {
-                        return Frame.from(frame.content().nioBuffer());
-                    } catch (Exception e)
-                    {
-                        e.printStackTrace();
-                        throw new RuntimeException(e);
-                    }
-                }));
-            }
+    	return toObservable(reactiveSocket.connect(new DuplexConnection() {
+			@Override
+			public Publisher<Frame> getInput() {
+				return toPublisher(ws.getInput().map(frame -> {
+					// TODO is this copying bytes?
+					try {
+						return Frame.from(frame.content().nioBuffer());
+					} catch (Exception e) {
+						e.printStackTrace();
+						throw new RuntimeException(e);
+					}
+				}));
+			}
 
-            @Override
-            public Publisher<Void> write(Publisher<Frame> o)
-            {
-                return toPublisher(ws.write(toObservable(o).map(m -> {
-                    // return new BinaryWebSocketFrame(Unpooled.wrappedBuffer(m.getBytes()));
-                    return new TextWebSocketFrame(Unpooled.wrappedBuffer(m.getByteBuffer()));
-                })));
-            }
-        }, requestHandler).responderPublisher();
-
-        return toObservable(publisher);
+			@Override
+			public Publisher<Void> write(Publisher<Frame> o) {
+				return toPublisher(ws.write(toObservable(o).map(frame -> {
+					return new BinaryWebSocketFrame(Unpooled.wrappedBuffer(frame.getByteBuffer()));
+				})));
+			}
+		}));
     }
 
 }
