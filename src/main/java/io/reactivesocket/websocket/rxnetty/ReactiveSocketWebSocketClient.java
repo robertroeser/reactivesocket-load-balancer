@@ -50,7 +50,7 @@ public class ReactiveSocketWebSocketClient {
 					}
 
 					@Override
-					public Publisher<Void> write(Publisher<Frame> o) {
+					public Publisher<Void> addOutput(Publisher<Frame> o) {
 						// had to use writeAndFlushOnEach instead of write for frames to get through
 						// TODO determine if that's expected or not
 						Publisher<Void> p = toPublisher(wsConn.writeAndFlushOnEach(toObservable(o)

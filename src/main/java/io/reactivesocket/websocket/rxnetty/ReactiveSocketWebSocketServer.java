@@ -25,6 +25,7 @@ import org.reactivestreams.Subscriber;
 import rx.Observable;
 import rx.Single;
 import rx.functions.Func1;
+import rx.functions.Func2;
 
 import static rx.RxReactiveStreams.toObservable;
 import static rx.RxReactiveStreams.toPublisher;
@@ -58,7 +59,8 @@ public class ReactiveSocketWebSocketServer {
             Func1<Payload, Single<Payload>> requestResponseHandler,
             Func1<Payload, Observable<Payload>> requestStreamHandler,
             Func1<Payload, Observable<Payload>> requestSubscriptionHandler,
-            Func1<Payload, Observable<Void>> fireAndForgetHandler) {
+            Func1<Payload, Observable<Void>> fireAndForgetHandler,
+            Func2<Payload, Observable<Payload>, Observable<Payload>> channelHandler) {
     	
     	RequestHandler handler = new RequestHandler() {
 
@@ -73,7 +75,7 @@ public class ReactiveSocketWebSocketServer {
             }
 
             @Override
-            public Publisher<Payload> handleRequestSubscription(Payload request) {
+            public Publisher<Payload> handleSubscription(Payload request) {
                 return toPublisher(requestSubscriptionHandler.call(request));
             }
 
@@ -81,6 +83,11 @@ public class ReactiveSocketWebSocketServer {
             public Publisher<Void> handleFireAndForget(Payload request) {
                 return toPublisher(fireAndForgetHandler.call(request));
             }
+
+			@Override
+			public Publisher<Payload> handleChannel(Payload initialPayload, Publisher<Payload> payloads) {
+				return toPublisher(channelHandler.call(initialPayload, toObservable(payloads)));
+			}
 
         };
         
@@ -116,7 +123,7 @@ public class ReactiveSocketWebSocketServer {
 			}
 
 			@Override
-			public Publisher<Void> write(Publisher<Frame> o) {
+			public Publisher<Void> addOutput(Publisher<Frame> o) {
 				return toPublisher(ws.write(toObservable(o).map(frame -> {
 					return new BinaryWebSocketFrame(Unpooled.wrappedBuffer(frame.getByteBuffer()));
 				})));

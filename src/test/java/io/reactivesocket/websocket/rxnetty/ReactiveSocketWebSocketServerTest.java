@@ -39,7 +39,7 @@ public class ReactiveSocketWebSocketServerTest {
         		requestStreamPayload -> {
                 	String requestStream = byteToString(requestStreamPayload.getData());
                     return just("a_" + requestStream, "b_" + requestStream).map(n -> utf8EncodedPayloadData(n));
-                } , null, null);
+                } , null, null, null);
 
         // start server with protocol
         HttpServer<ByteBuf, ByteBuf> server = HttpServer.newServer();

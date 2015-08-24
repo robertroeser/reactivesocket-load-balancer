@@ -48,7 +48,7 @@ public class ClientServerTest {
 				requestStreamPayload -> {
 					String requestStream = byteToString(requestStreamPayload.getData());
 					return Observable.just(requestStream, "world").map(n -> utf8EncodedPayloadData(n));
-				} , null, null);
+				} , null, null, null);
 
 		server = HttpServer.newServer()
 //				.clientChannelOption(ChannelOption.AUTO_READ, true)
