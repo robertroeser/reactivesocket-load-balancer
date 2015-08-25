@@ -55,8 +55,7 @@ public class ReactiveSocketWebSocketClient {
 						// TODO determine if that's expected or not
 						Publisher<Void> p = toPublisher(wsConn.writeAndFlushOnEach(toObservable(o)
 								.map(frame -> new BinaryWebSocketFrame(Unpooled.wrappedBuffer(frame.getByteBuffer())))
-						).doOnSubscribe(() -> System.out.println("DuplexConnection subscribe to Netty writeAndFlush " + System.currentTimeMillis()))
-								);
+						));
 						return p;
 					}
 				});

@@ -15,20 +15,22 @@
  */
 package io.reactivesocket.websocket.rxnetty;
 
+import static rx.RxReactiveStreams.*;
+
+import org.reactivestreams.Publisher;
+
 import io.netty.buffer.Unpooled;
 import io.netty.handler.codec.http.websocketx.BinaryWebSocketFrame;
-import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
-import io.reactivesocket.*;
+import io.reactivesocket.DuplexConnection;
+import io.reactivesocket.Frame;
+import io.reactivesocket.Payload;
+import io.reactivesocket.ReactiveSocket;
+import io.reactivesocket.RequestHandler;
 import io.reactivex.netty.protocol.http.ws.WebSocketConnection;
-import org.reactivestreams.Publisher;
-import org.reactivestreams.Subscriber;
 import rx.Observable;
 import rx.Single;
 import rx.functions.Func1;
 import rx.functions.Func2;
-
-import static rx.RxReactiveStreams.toObservable;
-import static rx.RxReactiveStreams.toPublisher;
 
 /**
  * A ReactiveSocket handler for WebSockets in RxNetty.
@@ -124,7 +126,9 @@ public class ReactiveSocketWebSocketServer {
 
 			@Override
 			public Publisher<Void> addOutput(Publisher<Frame> o) {
-				return toPublisher(ws.write(toObservable(o).map(frame -> {
+				// had to use writeAndFlushOnEach instead of write for frames to reliably get through
+				// TODO determine if that's expected or not
+				return toPublisher(ws.writeAndFlushOnEach(toObservable(o).map(frame -> {
 					return new BinaryWebSocketFrame(Unpooled.wrappedBuffer(frame.getByteBuffer()));
 				})));
 			}

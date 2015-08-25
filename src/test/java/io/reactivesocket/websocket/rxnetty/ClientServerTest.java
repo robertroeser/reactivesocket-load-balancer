@@ -15,15 +15,14 @@
  */
 package io.reactivesocket.websocket.rxnetty;
 
-import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 
-import io.netty.channel.ChannelOption;
 import io.netty.handler.logging.LogLevel;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import static io.reactivesocket.websocket.rxnetty.TestUtil.*;
+import static org.junit.Assert.*;
 
 import io.netty.buffer.ByteBuf;
 import io.reactivex.netty.protocol.http.client.HttpClient;
@@ -43,7 +42,13 @@ public class ClientServerTest {
 		ReactiveSocketWebSocketServer serverHandler = ReactiveSocketWebSocketServer.create(
 				requestResponsePayload -> {
 					String requestResponse = byteToString(requestResponsePayload.getData());
-					return Single.just(utf8EncodedPayloadData(requestResponse + " world"));
+					if (requestResponse.startsWith("h")) {
+						return Single.just(utf8EncodedPayloadData(requestResponse + " world"));
+					} else if ("test".equals(requestResponse)) {
+						return Single.just(utf8EncodedPayloadData("test response"));
+					} else {
+						return Single.error(new RuntimeException("Not Found"));
+					}
 				} ,
 				requestStreamPayload -> {
 					String requestStream = byteToString(requestStreamPayload.getData());
@@ -51,8 +56,8 @@ public class ClientServerTest {
 				} , null, null, null);
 
 		server = HttpServer.newServer()
-//				.clientChannelOption(ChannelOption.AUTO_READ, true)
-//				.enableWireLogging(LogLevel.ERROR)
+				// .clientChannelOption(ChannelOption.AUTO_READ, true)
+				// .enableWireLogging(LogLevel.ERROR)
 				.start((req, resp) -> {
 					return resp.acceptWebSocketUpgrade(serverHandler::acceptWebsocket);
 				});
@@ -65,7 +70,8 @@ public class ClientServerTest {
 				.toBlocking().single();
 
 		client.connect()
-				.subscribe(v -> {}, t -> t.printStackTrace());
+				.subscribe(v -> {
+				} , t -> t.printStackTrace());
 	}
 
 	@AfterClass
@@ -86,7 +92,41 @@ public class ClientServerTest {
 	}
 
 	@Test
-	public void testRequestResponseMultiple() {
+	public void testRequestResponseError() {
+		TestSubscriber<String> ts = TestSubscriber.create();
+		client.requestResponse(utf8EncodedPayloadData("none"))
+				.map(payload -> byteToString(payload.getData()))
+				.subscribe(ts);
+		ts.awaitTerminalEvent(1500, TimeUnit.MILLISECONDS);
+		ts.assertNotCompleted();
+		assertEquals("Not Found", ts.getOnErrorEvents().get(0).getMessage());
+	}
+
+	@Test
+	public void testRequestResponseMultiple1() {
+		TestSubscriber<String> ts = TestSubscriber.create();
+		client.requestResponse(utf8EncodedPayloadData("hello"))
+				.map(payload -> byteToString(payload.getData()))
+				.subscribe(ts);
+
+		TestSubscriber<String> ts2 = TestSubscriber.create();
+		client.requestResponse(utf8EncodedPayloadData("test"))
+				.map(payload -> byteToString(payload.getData()))
+				.subscribe(ts2);
+
+		ts.awaitTerminalEvent(1500, TimeUnit.MILLISECONDS);
+		ts.assertNoErrors();
+		ts.assertCompleted();
+		ts.assertValue("hello world");
+
+		ts2.awaitTerminalEvent(1500, TimeUnit.MILLISECONDS);
+		ts2.assertNoErrors();
+		ts2.assertCompleted();
+		ts2.assertValue("test response");
+	}
+
+	@Test
+	public void testRequestResponseMultiple2() {
 		TestSubscriber<String> ts = TestSubscriber.create();
 		client.requestResponse(utf8EncodedPayloadData("hello"))
 				.mergeWith(client.requestResponse(utf8EncodedPayloadData("hi")))
