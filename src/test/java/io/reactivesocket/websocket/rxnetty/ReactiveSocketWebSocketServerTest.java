@@ -16,36 +16,48 @@
 package io.reactivesocket.websocket.rxnetty;
 
 import static rx.Observable.*;
+import static rx.RxReactiveStreams.*;
 
 import org.junit.Test;
 import static io.reactivesocket.websocket.rxnetty.TestUtil.*;
 
 import io.netty.buffer.ByteBuf;
-import io.reactivesocket.websocket.rxnetty.ReactiveSocketWebSocketServer;
+import io.reactivesocket.ConnectionSetupHandler;
+import io.reactivesocket.RequestHandler;
 import io.reactivex.netty.protocol.http.client.HttpClient;
 import io.reactivex.netty.protocol.http.server.HttpServer;
+import rx.Observable;
 import rx.Single;
 
 public class ReactiveSocketWebSocketServerTest {
 
     @Test
     public void test() {
-        // create protocol with handlers
-        ReactiveSocketWebSocketServer handler = ReactiveSocketWebSocketServer.create(
-        		requestResponsePayload -> {
-                	String requestResponse = byteToString(requestResponsePayload.getData()); 
-                    return Single.just(utf8EncodedPayloadData("hello" + requestResponse));
-                } ,
-        		requestStreamPayload -> {
-                	String requestStream = byteToString(requestStreamPayload.getData());
-                    return just("a_" + requestStream, "b_" + requestStream).map(n -> utf8EncodedPayloadData(n));
-                } , null, null, null);
-
+    	
+    	ConnectionSetupHandler connectionHandler = setup -> {
+    		return RequestHandler.create(
+            		requestResponsePayload -> {
+                    	String requestResponse = byteToString(requestResponsePayload.getData()); 
+                        return toPublisher(Observable.just(utf8EncodedPayloadData("hello" + requestResponse)));
+                    } ,
+            		requestStreamPayload -> {
+                    	String requestStream = byteToString(requestStreamPayload.getData());
+                        return toPublisher(just("a_" + requestStream, "b_" + requestStream).map(n -> utf8EncodedPayloadData(n)));
+                    } , null, null, null);
+    	};
+    	
         // start server with protocol
         HttpServer<ByteBuf, ByteBuf> server = HttpServer.newServer();
         int port = server.getServerPort();
         server.start((request, response) -> {
-            return response.acceptWebSocketUpgrade(handler::acceptWebsocket);
+            return response.acceptWebSocketUpgrade(connection -> {
+            	return Observable.create(s -> {
+            		ReactiveSocketWebSocket.fromServerConnection(connection, connectionHandler, err -> {
+            			s.onError(err); // is this what we should do?
+            		});
+            	});
+            	
+            });
         });
 
         // TODO send actual requests

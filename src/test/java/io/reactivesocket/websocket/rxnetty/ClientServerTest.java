@@ -17,7 +17,12 @@ package io.reactivesocket.websocket.rxnetty;
 
 import java.util.concurrent.TimeUnit;
 
+import static rx.RxReactiveStreams.*;
+
 import io.netty.handler.logging.LogLevel;
+import io.reactivesocket.ConnectionSetupHandler;
+import io.reactivesocket.RequestHandler;
+
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -34,44 +39,48 @@ import rx.observers.TestSubscriber;
 
 public class ClientServerTest {
 
-	static ReactiveSocketWebSocketClient client;
+	static ReactiveSocketWebSocket client;
 	static HttpServer<ByteBuf, ByteBuf> server;
 
 	@BeforeClass
 	public static void setup() {
-		ReactiveSocketWebSocketServer serverHandler = ReactiveSocketWebSocketServer.create(
-				requestResponsePayload -> {
-					String requestResponse = byteToString(requestResponsePayload.getData());
-					if (requestResponse.startsWith("h")) {
-						return Single.just(utf8EncodedPayloadData(requestResponse + " world"));
-					} else if ("test".equals(requestResponse)) {
-						return Single.just(utf8EncodedPayloadData("test response"));
-					} else {
-						return Single.error(new RuntimeException("Not Found"));
-					}
-				} ,
-				requestStreamPayload -> {
-					String requestStream = byteToString(requestStreamPayload.getData());
-					return Observable.just(requestStream, "world").map(n -> utf8EncodedPayloadData(n));
-				} , null, null, null);
-
+		ConnectionSetupHandler connectionHandler = setup -> {
+			return RequestHandler.create(
+			requestResponsePayload -> {
+				String requestResponse = byteToString(requestResponsePayload.getData());
+				if (requestResponse.startsWith("h")) {
+					return toPublisher(Observable.just(utf8EncodedPayloadData(requestResponse + " world")));
+				} else if ("test".equals(requestResponse)) {
+					return toPublisher(Observable.just(utf8EncodedPayloadData("test response")));
+				} else {
+					return toPublisher(Observable.error(new RuntimeException("Not Found")));
+				}
+			} ,
+			requestStreamPayload -> {
+				String requestStream = byteToString(requestStreamPayload.getData());
+				return toPublisher(Observable.just(requestStream, "world").map(n -> utf8EncodedPayloadData(n)));
+			} , null, null, null);
+		};
+		
 		server = HttpServer.newServer()
 				// .clientChannelOption(ChannelOption.AUTO_READ, true)
 				// .enableWireLogging(LogLevel.ERROR)
 				.start((req, resp) -> {
-					return resp.acceptWebSocketUpgrade(serverHandler::acceptWebsocket);
+					return resp.acceptWebSocketUpgrade(ws -> {
+						return Observable.create(s -> {
+							ReactiveSocketWebSocket socket = ReactiveSocketWebSocket.fromServerConnection(ws, connectionHandler, err -> {
+								s.onError(err); // TODO do we want to tear down on any error?
+							});	
+						});
+					});
 				});
 
 		client = HttpClient.newClient("localhost", server.getServerPort()).enableWireLogging(LogLevel.ERROR)
 				.createGet("/rs")
 				.requestWebSocketUpgrade()
 				.flatMap(WebSocketResponse::getWebSocketConnection)
-				.map(ReactiveSocketWebSocketClient::create)
+				.map(conn -> ReactiveSocketWebSocket.fromClientConnection(conn, "UTF-8"))
 				.toBlocking().single();
-
-		client.connect()
-				.subscribe(v -> {
-				} , t -> t.printStackTrace());
 	}
 
 	@AfterClass

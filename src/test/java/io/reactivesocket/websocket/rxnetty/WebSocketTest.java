@@ -23,6 +23,7 @@ import org.reactivestreams.Publisher;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.handler.codec.http.websocketx.BinaryWebSocketFrame;
+import io.reactivesocket.Completable;
 import io.reactivesocket.DuplexConnection;
 import io.reactivesocket.Frame;
 import io.reactivesocket.FrameType;
@@ -52,20 +53,36 @@ public class WebSocketTest {
 					}
 
 					@Override
-					public Publisher<Void> addOutput(Publisher<Frame> o) {
-						return toPublisher(ws.writeAndFlushOnEach(toObservable(o).map(frame -> {
+					public void addOutput(Publisher<Frame> o, Completable callback) {
+						ws.writeAndFlushOnEach(toObservable(o).map(frame -> {
 							System.out.println("*** writing response from server: " + frame);
 							return new BinaryWebSocketFrame(Unpooled.wrappedBuffer(frame.getByteBuffer()));
-						})));
+						})).subscribe(n -> {}, callback::error, callback::success);
 					}
+					
+					public void close() throws java.io.IOException {
+						ws.closeNow();
+					};
 				};
 
-				return toObservable(serverConnection
-						.getInput()).flatMap(frame -> {
+				Observable<Void> write = Observable.create(s -> {
+					serverConnection.addOutput(toPublisher(Observable.just(Frame.from(1, FrameType.NEXT_COMPLETE,
+									TestUtil.utf8EncodedPayloadData("response data")))), new Completable() {
+
+								@Override
+								public void success() {
+									s.onCompleted();
+								}
+
+								@Override
+								public void error(Throwable e) {
+									s.onError(e);										
+								}});
+				});
+				
+				return toObservable(serverConnection.getInput()).flatMap(frame -> {
 					System.out.println("Received frame on server: " + frame);
-					return toObservable(serverConnection.addOutput(toPublisher(
-							Observable.just(Frame.from(1, FrameType.NEXT_COMPLETE,
-									TestUtil.utf8EncodedPayloadData("response data"))))));
+					return write;
 				});
 			});
 		});
@@ -89,18 +106,35 @@ public class WebSocketTest {
 						}
 
 						@Override
-						public Publisher<Void> addOutput(Publisher<Frame> o) {
-							Publisher<Void> p = toPublisher(ws.writeAndFlushOnEach(toObservable(o)
+						public void addOutput(Publisher<Frame> o, Completable callback) {
+							ws.writeAndFlushOnEach(toObservable(o)
 									.doOnNext(frame -> System.out.println("*** writing request from client: " + frame))
-									.map(frame -> new BinaryWebSocketFrame(Unpooled.wrappedBuffer(frame.getByteBuffer())))));
-							return p;
+									.map(frame -> new BinaryWebSocketFrame(Unpooled.wrappedBuffer(frame.getByteBuffer()))))
+									.subscribe(n -> {} , callback::error, callback::success);
 						}
+						
+						public void close() throws java.io.IOException {
+							ws.closeNow();
+						};
 					};
 
-					return toObservable(
-							clientConnection.addOutput(toPublisher(Observable.just(Frame.from(1, FrameType.REQUEST_RESPONSE,
-									TestUtil.utf8EncodedPayloadData("request data")))))).cast(Frame.class)
-											.mergeWith(toObservable(clientConnection.getInput()));
+					Observable<Void> write = Observable.create(s -> {
+						clientConnection.addOutput(toPublisher(Observable.just(Frame.from(1, FrameType.REQUEST_RESPONSE,
+								TestUtil.utf8EncodedPayloadData("request data")))), new Completable() {
+
+									@Override
+									public void success() {
+										s.onCompleted();
+									}
+
+									@Override
+									public void error(Throwable e) {
+										s.onError(e);										
+									}});
+					});
+					
+					
+					return write.cast(Frame.class).mergeWith(toObservable(clientConnection.getInput()));
 				}).take(1).toBlocking().forEach(d -> System.out.println("Received on client: " + d));
 		
 		server.shutdown();
