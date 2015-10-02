@@ -1,12 +1,12 @@
 /**
  * Copyright 2015 Netflix, Inc.
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -15,148 +15,127 @@
  */
 package io.reactivesocket.websocket.rxnetty;
 
-import java.util.concurrent.TimeUnit;
-
-import static rx.RxReactiveStreams.*;
-
+import io.netty.buffer.ByteBuf;
 import io.netty.handler.logging.LogLevel;
 import io.reactivesocket.ConnectionSetupHandler;
+import io.reactivesocket.ConnectionSetupPayload;
+import io.reactivesocket.Payload;
+import io.reactivesocket.ReactiveSocket;
 import io.reactivesocket.RequestHandler;
-
+import io.reactivesocket.exceptions.SetupException;
+import io.reactivesocket.websocket.rxnetty.client.WebSocketClientDuplexConnection;
+import io.reactivesocket.websocket.rxnetty.client.WebSocketDuplexConnection;
+import io.reactivesocket.websocket.rxnetty.server.ReactiveSocketWebSocketServer;
+import io.reactivex.netty.protocol.http.client.HttpClient;
+import io.reactivex.netty.protocol.http.server.HttpServer;
+import io.reactivex.netty.protocol.http.ws.WebSocketConnection;
+import io.reactivex.netty.protocol.http.ws.client.WebSocketResponse;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
-import static io.reactivesocket.websocket.rxnetty.TestUtil.*;
-import static org.junit.Assert.*;
-
-import io.netty.buffer.ByteBuf;
-import io.reactivex.netty.protocol.http.client.HttpClient;
-import io.reactivex.netty.protocol.http.server.HttpServer;
-import io.reactivex.netty.protocol.http.ws.client.WebSocketResponse;
+import org.reactivestreams.Publisher;
+import org.reactivestreams.Subscriber;
 import rx.Observable;
-import rx.Single;
+import rx.RxReactiveStreams;
 import rx.observers.TestSubscriber;
+
+import java.util.concurrent.TimeUnit;
+
+import static io.reactivesocket.websocket.rxnetty.TestUtil.byteToString;
 
 public class ClientServerTest {
 
-	static ReactiveSocketWebSocket client;
-	static HttpServer<ByteBuf, ByteBuf> server;
+    static ReactiveSocket client;
+    static HttpServer<ByteBuf, ByteBuf> server;
 
-	@BeforeClass
-	public static void setup() {
-		ConnectionSetupHandler connectionHandler = setup -> {
-			return RequestHandler.create(
-			requestResponsePayload -> {
-				String requestResponse = byteToString(requestResponsePayload.getData());
-				if (requestResponse.startsWith("h")) {
-					return toPublisher(Observable.just(utf8EncodedPayloadData(requestResponse + " world")));
-				} else if ("test".equals(requestResponse)) {
-					return toPublisher(Observable.just(utf8EncodedPayloadData("test response")));
-				} else {
-					return toPublisher(Observable.error(new RuntimeException("Not Found")));
-				}
-			} ,
-			requestStreamPayload -> {
-				String requestStream = byteToString(requestStreamPayload.getData());
-				return toPublisher(Observable.just(requestStream, "world").map(n -> utf8EncodedPayloadData(n)));
-			} , null, null, null);
-		};
-		
-		server = HttpServer.newServer()
-				// .clientChannelOption(ChannelOption.AUTO_READ, true)
-				// .enableWireLogging(LogLevel.ERROR)
-				.start((req, resp) -> {
-					return resp.acceptWebSocketUpgrade(ws -> {
-						return Observable.create(s -> {
-							ReactiveSocketWebSocket socket = ReactiveSocketWebSocket.fromServerConnection(ws, connectionHandler, err -> {
-								s.onError(err); // TODO do we want to tear down on any error?
-							});	
-						});
-					});
-				});
+    @BeforeClass
+    public static void setup() {
+        ReactiveSocketWebSocketServer serverHandler =
+            ReactiveSocketWebSocketServer.create(new ConnectionSetupHandler() {
+                @Override
+                public RequestHandler apply(ConnectionSetupPayload setupPayload) throws SetupException {
+                    return new RequestHandler() {
+                        @Override
+                        public Publisher<Payload> handleRequestResponse(Payload payload) {
+                            return new Publisher<Payload>() {
+                                @Override
+                                public void subscribe(Subscriber<? super Payload> s) {
+                                    System.out.println("Handling request/response payload => " + s.toString());
+                                    Payload response = TestUtil.utf8EncodedPayload("hello world", "metadata");
+                                    s.onNext(response);
+                                    s.onComplete();
+                                }
+                            };
+                        }
 
-		client = HttpClient.newClient("localhost", server.getServerPort()).enableWireLogging(LogLevel.ERROR)
-				.createGet("/rs")
-				.requestWebSocketUpgrade()
-				.flatMap(WebSocketResponse::getWebSocketConnection)
-				.map(conn -> ReactiveSocketWebSocket.fromClientConnection(conn, "UTF-8"))
-				.toBlocking().single();
-	}
+                        @Override
+                        public Publisher<Payload> handleRequestStream(Payload payload) {
+                            return null;
+                        }
 
-	@AfterClass
-	public static void tearDown() {
-		server.shutdown();
-	}
+                        @Override
+                        public Publisher<Payload> handleSubscription(Payload payload) {
+                            return null;
+                        }
 
-	@Test
-	public void testRequestResponse() {
-		TestSubscriber<String> ts = TestSubscriber.create();
-		client.requestResponse(utf8EncodedPayloadData("hello"))
-				.map(payload -> byteToString(payload.getData()))
-				.subscribe(ts);
-		ts.awaitTerminalEvent(1500, TimeUnit.MILLISECONDS);
-		ts.assertNoErrors();
-		ts.assertCompleted();
-		ts.assertValue("hello world");
-	}
+                        @Override
+                        public Publisher<Void> handleFireAndForget(Payload payload) {
+                            return null;
+                        }
 
-	@Test
-	public void testRequestResponseError() {
-		TestSubscriber<String> ts = TestSubscriber.create();
-		client.requestResponse(utf8EncodedPayloadData("none"))
-				.map(payload -> byteToString(payload.getData()))
-				.subscribe(ts);
-		ts.awaitTerminalEvent(1500, TimeUnit.MILLISECONDS);
-		ts.assertNotCompleted();
-		assertEquals("Not Found", ts.getOnErrorEvents().get(0).getMessage());
-	}
+                        @Override
+                        public Publisher<Payload> handleChannel(Payload initialPayload, Publisher<Payload> payloads) {
+                            return null;
+                        }
 
-	@Test
-	public void testRequestResponseMultiple1() {
-		TestSubscriber<String> ts = TestSubscriber.create();
-		client.requestResponse(utf8EncodedPayloadData("hello"))
-				.map(payload -> byteToString(payload.getData()))
-				.subscribe(ts);
+                        @Override
+                        public Publisher<Void> handleMetadataPush(Payload payload) {
+                            return null;
+                        }
+                    };
+                }
+            });
 
-		TestSubscriber<String> ts2 = TestSubscriber.create();
-		client.requestResponse(utf8EncodedPayloadData("test"))
-				.map(payload -> byteToString(payload.getData()))
-				.subscribe(ts2);
+        server = HttpServer.newServer()
+//				.clientChannelOption(ChannelOption.AUTO_READ, true)
+            .enableWireLogging(LogLevel.ERROR)
+            .start((req, resp) -> {
+                return resp.acceptWebSocketUpgrade(serverHandler::acceptWebsocket);
+            });
 
-		ts.awaitTerminalEvent(1500, TimeUnit.MILLISECONDS);
-		ts.assertNoErrors();
-		ts.assertCompleted();
-		ts.assertValue("hello world");
 
-		ts2.awaitTerminalEvent(1500, TimeUnit.MILLISECONDS);
-		ts2.assertNoErrors();
-		ts2.assertCompleted();
-		ts2.assertValue("test response");
-	}
+        Observable<WebSocketConnection> wsConnection = HttpClient.newClient("localhost", server.getServerPort()).enableWireLogging(LogLevel.ERROR)
+            .createGet("/rs")
+            .requestWebSocketUpgrade()
+            .flatMap(WebSocketResponse::getWebSocketConnection);
 
-	@Test
-	public void testRequestResponseMultiple2() {
-		TestSubscriber<String> ts = TestSubscriber.create();
-		client.requestResponse(utf8EncodedPayloadData("hello"))
-				.mergeWith(client.requestResponse(utf8EncodedPayloadData("hi")))
-				.map(payload -> byteToString(payload.getData()))
-				.subscribe(ts);
-		ts.awaitTerminalEvent(1500, TimeUnit.MILLISECONDS);
-		ts.assertNoErrors();
-		ts.assertCompleted();
-		ts.assertValues("hello world", "hi world");
-	}
+        Publisher<WebSocketDuplexConnection> connectionPublisher = WebSocketClientDuplexConnection.create(RxReactiveStreams.toPublisher(wsConnection));
 
-	@Test
-	public void testRequestStream() {
-		TestSubscriber<String> ts = TestSubscriber.create();
-		client.requestStream(utf8EncodedPayloadData("hello"))
-				.map(payload -> byteToString(payload.getData()))
-				.subscribe(ts);
-		ts.awaitTerminalEvent(1500, TimeUnit.MILLISECONDS);
-		ts.assertNoErrors();
-		ts.assertCompleted();
-		ts.assertValues("hello", "world");
-	}
+        client = RxReactiveStreams
+            .toObservable(connectionPublisher)
+            .map(w -> ReactiveSocket.fromClientConnection(w, ConnectionSetupPayload.create("UTF-8", "UTF-8")))
+            .toBlocking()
+            .single();
+
+        client.startAndWait();
+    }
+
+    @AfterClass
+    public static void tearDown() {
+        server.shutdown();
+    }
+
+    @Test
+    public void testRequestResponse() {
+        TestSubscriber<String> ts = TestSubscriber.create();
+        RxReactiveStreams.toObservable(client.requestResponse(TestUtil.utf8EncodedPayload("hello", "metadata")))
+            .map(payload -> byteToString(payload.getData()))
+            .subscribe(ts);
+        ts.awaitTerminalEvent(1500, TimeUnit.MILLISECONDS);
+        ts.assertNoErrors();
+        ts.assertCompleted();
+        ts.assertValue("hello world");
+    }
+
 
 }
