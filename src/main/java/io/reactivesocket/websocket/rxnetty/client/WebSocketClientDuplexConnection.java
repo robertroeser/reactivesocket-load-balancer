@@ -1,6 +1,7 @@
 package io.reactivesocket.websocket.rxnetty.client;
 
 
+import io.reactivesocket.websocket.rxnetty.WebSocketDuplexConnection;
 import io.reactivex.netty.protocol.http.ws.WebSocketConnection;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;

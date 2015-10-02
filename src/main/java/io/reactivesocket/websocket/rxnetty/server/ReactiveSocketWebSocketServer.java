@@ -19,7 +19,7 @@ import io.reactivesocket.ConnectionSetupHandler;
 import io.reactivesocket.LeaseGovernor;
 import io.reactivesocket.ReactiveSocket;
 import io.reactivesocket.rx.Completable;
-import io.reactivesocket.websocket.rxnetty.client.WebSocketDuplexConnection;
+import io.reactivesocket.websocket.rxnetty.WebSocketDuplexConnection;
 import io.reactivex.netty.protocol.http.ws.WebSocketConnection;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;

@@ -24,7 +24,6 @@ import io.reactivesocket.ReactiveSocket;
 import io.reactivesocket.RequestHandler;
 import io.reactivesocket.exceptions.SetupException;
 import io.reactivesocket.websocket.rxnetty.client.WebSocketClientDuplexConnection;
-import io.reactivesocket.websocket.rxnetty.client.WebSocketDuplexConnection;
 import io.reactivesocket.websocket.rxnetty.server.ReactiveSocketWebSocketServer;
 import io.reactivex.netty.protocol.http.client.HttpClient;
 import io.reactivex.netty.protocol.http.server.HttpServer;
