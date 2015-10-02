@@ -71,9 +71,7 @@ public class ReactiveSocketWebSocketServer {
 
                         reactiveSocket.start(new Completable() {
                             @Override
-                            public void success() {
-                               // subscriber.onCompleted();
-                            }
+                            public void success() {}
 
                             @Override
                             public void error(Throwable e) {
