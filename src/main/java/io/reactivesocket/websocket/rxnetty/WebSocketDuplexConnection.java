@@ -15,6 +15,8 @@
  */
 package io.reactivesocket.websocket.rxnetty;
 
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.PooledByteBufAllocator;
 import io.netty.buffer.Unpooled;
 import io.netty.handler.codec.http.websocketx.BinaryWebSocketFrame;
 import io.netty.handler.codec.http.websocketx.WebSocketFrame;
@@ -33,11 +35,14 @@ import java.nio.ByteBuffer;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 public abstract class WebSocketDuplexConnection implements DuplexConnection {
+    protected static ThreadLocal<MutableDirectByteBuf> mutableDirectByteBufs = ThreadLocal.withInitial(() -> new MutableDirectByteBuf(Unpooled.buffer()));
+
     protected WebSocketConnection webSocketConnection;
 
     protected CopyOnWriteArrayList<Observer<Frame>> observers;
 
     private final String type;
+
 
     protected WebSocketDuplexConnection(WebSocketConnection webSocketConnection, String type) {
         this.webSocketConnection = webSocketConnection;
@@ -61,12 +66,19 @@ public abstract class WebSocketDuplexConnection implements DuplexConnection {
 
                 @Override
                 public void onNext(WebSocketFrame webSocketFrame) {
-                    // TODO use mutable direct buffer wrapper eventually
-                    ByteBuffer buffer = webSocketFrame.content().nioBuffer();
-                    Frame frame = Frame.from(buffer);
+                    ByteBuf content = webSocketFrame.content();
+                    try {
+                        MutableDirectByteBuf buffer = mutableDirectByteBufs.get();
+                        buffer.wrap(content);
+                        Frame frame = Frame.from(buffer, 0, buffer.capacity());
 
-                    observers
-                        .forEach(o -> o.onNext(frame));
+                        observers
+                            .forEach(o -> o.onNext(frame));
+                    } finally {
+                        if (content != null) {
+                            content.release();
+                        }
+                    }
                 }
             });
 
@@ -93,13 +105,22 @@ public abstract class WebSocketDuplexConnection implements DuplexConnection {
 
     @Override
     public void addOutput(Publisher<Frame> o, Completable callback) {
+
+        rx.Observable<WebSocketFrame> binaryWebSocketFrameObservable = RxReactiveStreams
+            .toObservable(o)
+            .map(frame -> {
+                ByteBuffer byteBuffer = frame.getByteBuffer();
+                ByteBuf buf = PooledByteBufAllocator
+                    .DEFAULT
+                    .buffer(byteBuffer.capacity());
+                buf.writeBytes(byteBuffer);
+
+                return new BinaryWebSocketFrame(buf);
+            });
+
+
         webSocketConnection
-            .writeAndFlushOnEach(
-                RxReactiveStreams
-                    .toObservable(o)
-                    .map(frame
-                        -> new BinaryWebSocketFrame(Unpooled.wrappedBuffer(frame.getByteBuffer())))
-            )
+            .writeAndFlushOnEach(binaryWebSocketFrameObservable)
             .doOnCompleted(callback::success)
             .doOnError(t -> {
                 try {

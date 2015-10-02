@@ -16,7 +16,6 @@
 package io.reactivesocket.websocket.rxnetty;
 
 import io.netty.buffer.ByteBuf;
-import io.netty.handler.logging.LogLevel;
 import io.reactivesocket.ConnectionSetupHandler;
 import io.reactivesocket.ConnectionSetupPayload;
 import io.reactivesocket.Payload;
@@ -40,8 +39,6 @@ import rx.observers.TestSubscriber;
 
 import java.util.concurrent.TimeUnit;
 
-import static io.reactivesocket.websocket.rxnetty.TestUtil.byteToString;
-
 public class ClientServerTest {
 
     static ReactiveSocket client;
@@ -59,7 +56,7 @@ public class ClientServerTest {
                             return new Publisher<Payload>() {
                                 @Override
                                 public void subscribe(Subscriber<? super Payload> s) {
-                                    System.out.println("Handling request/response payload => " + s.toString());
+                                    //System.out.println("Handling request/response payload => " + s.toString());
                                     Payload response = TestUtil.utf8EncodedPayload("hello world", "metadata");
                                     s.onNext(response);
                                     s.onComplete();
@@ -69,17 +66,27 @@ public class ClientServerTest {
 
                         @Override
                         public Publisher<Payload> handleRequestStream(Payload payload) {
-                            return null;
+                            Payload response = TestUtil.utf8EncodedPayload("hello world", "metadata");
+
+                            return RxReactiveStreams
+                                .toPublisher(Observable
+                                    .range(1, 10)
+                                    .map(i -> response));
                         }
 
                         @Override
                         public Publisher<Payload> handleSubscription(Payload payload) {
-                            return null;
+                            Payload response = TestUtil.utf8EncodedPayload("hello world", "metadata");
+
+                            return RxReactiveStreams
+                                .toPublisher(Observable
+                                    .range(1, 10)
+                                    .map(i -> response));
                         }
 
                         @Override
                         public Publisher<Void> handleFireAndForget(Payload payload) {
-                            return null;
+                            return Subscriber::onComplete;
                         }
 
                         @Override
@@ -97,13 +104,14 @@ public class ClientServerTest {
 
         server = HttpServer.newServer()
 //				.clientChannelOption(ChannelOption.AUTO_READ, true)
-            .enableWireLogging(LogLevel.ERROR)
+//            .enableWireLogging(LogLevel.ERROR)
             .start((req, resp) -> {
                 return resp.acceptWebSocketUpgrade(serverHandler::acceptWebsocket);
             });
 
 
-        Observable<WebSocketConnection> wsConnection = HttpClient.newClient("localhost", server.getServerPort()).enableWireLogging(LogLevel.ERROR)
+        Observable<WebSocketConnection> wsConnection = HttpClient.newClient("localhost", server.getServerPort())
+            //.enableWireLogging(LogLevel.ERROR)
             .createGet("/rs")
             .requestWebSocketUpgrade()
             .flatMap(WebSocketResponse::getWebSocketConnection);
@@ -125,15 +133,63 @@ public class ClientServerTest {
     }
 
     @Test
-    public void testRequestResponse() {
-        TestSubscriber<String> ts = TestSubscriber.create();
-        RxReactiveStreams.toObservable(client.requestResponse(TestUtil.utf8EncodedPayload("hello", "metadata")))
-            .map(payload -> byteToString(payload.getData()))
+    public void testRequestResponse1() {
+        requestResponseN(1500, 1);
+    }
+
+    @Test
+    public void testRequestResponse10() {
+        requestResponseN(1500, 10);
+    }
+
+
+    @Test
+    public void testRequestResponse100() {
+        requestResponseN(1500, 100);
+    }
+
+    @Test
+    public void testRequestResponse10_000() {
+        requestResponseN(60_000, 10_000);
+    }
+
+    @Test
+    public void testRequestStream() {
+        TestSubscriber ts = TestSubscriber.create();
+
+        RxReactiveStreams
+            .toObservable(client.requestStream(TestUtil.utf8EncodedPayload("hello", "metadata")))
             .subscribe(ts);
-        ts.awaitTerminalEvent(1500, TimeUnit.MILLISECONDS);
+
+
+        ts.awaitTerminalEvent(3_000, TimeUnit.MILLISECONDS);
+        ts.assertValueCount(10);
         ts.assertNoErrors();
         ts.assertCompleted();
-        ts.assertValue("hello world");
+    }
+
+    public void requestResponseN(int timeout, int count) {
+
+        TestSubscriber ts = TestSubscriber.create();
+
+        Observable
+            .range(1, count)
+            .flatMap(i ->
+                    RxReactiveStreams
+                        .toObservable(
+                            client.requestResponse(TestUtil.utf8EncodedPayload("hello", "metadata"))
+                        )
+                        .map(payload ->
+                                TestUtil.byteToString(payload.getData())
+                        )
+                        //.doOnNext(System.out::println)
+            )
+            .subscribe(ts);
+
+        ts.awaitTerminalEvent(timeout, TimeUnit.MILLISECONDS);
+        ts.assertValueCount(count);
+        ts.assertNoErrors();
+        ts.assertCompleted();
     }
 
 
