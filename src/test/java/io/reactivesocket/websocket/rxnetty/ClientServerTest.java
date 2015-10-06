@@ -22,7 +22,6 @@ import io.reactivesocket.Payload;
 import io.reactivesocket.ReactiveSocket;
 import io.reactivesocket.RequestHandler;
 import io.reactivesocket.exceptions.SetupException;
-import io.reactivesocket.websocket.rxnetty.client.WebSocketClientDuplexConnection;
 import io.reactivesocket.websocket.rxnetty.server.ReactiveSocketWebSocketServer;
 import io.reactivex.netty.protocol.http.client.HttpClient;
 import io.reactivex.netty.protocol.http.server.HttpServer;
@@ -116,7 +115,7 @@ public class ClientServerTest {
             .requestWebSocketUpgrade()
             .flatMap(WebSocketResponse::getWebSocketConnection);
 
-        Publisher<WebSocketDuplexConnection> connectionPublisher = WebSocketClientDuplexConnection.create(RxReactiveStreams.toPublisher(wsConnection));
+        Publisher<WebSocketDuplexConnection> connectionPublisher = WebSocketDuplexConnection.create(RxReactiveStreams.toPublisher(wsConnection));
 
         client = RxReactiveStreams
             .toObservable(connectionPublisher)

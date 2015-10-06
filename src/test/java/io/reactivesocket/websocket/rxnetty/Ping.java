@@ -18,7 +18,6 @@ package io.reactivesocket.websocket.rxnetty;
 import io.reactivesocket.ConnectionSetupPayload;
 import io.reactivesocket.Payload;
 import io.reactivesocket.ReactiveSocket;
-import io.reactivesocket.websocket.rxnetty.client.WebSocketClientDuplexConnection;
 import io.reactivex.netty.protocol.http.client.HttpClient;
 import io.reactivex.netty.protocol.http.ws.WebSocketConnection;
 import io.reactivex.netty.protocol.http.ws.client.WebSocketResponse;
@@ -43,7 +42,7 @@ public class Ping {
             .requestWebSocketUpgrade()
             .flatMap(WebSocketResponse::getWebSocketConnection);
 
-        Publisher<WebSocketDuplexConnection> connectionPublisher = WebSocketClientDuplexConnection.create(RxReactiveStreams.toPublisher(wsConnection));
+        Publisher<WebSocketDuplexConnection> connectionPublisher = WebSocketDuplexConnection.create(RxReactiveStreams.toPublisher(wsConnection));
 
         ReactiveSocket reactiveSocket = RxReactiveStreams
             .toObservable(connectionPublisher)

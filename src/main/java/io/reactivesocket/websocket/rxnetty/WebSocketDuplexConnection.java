@@ -28,26 +28,24 @@ import io.reactivesocket.rx.Observable;
 import io.reactivesocket.rx.Observer;
 import io.reactivex.netty.protocol.http.ws.WebSocketConnection;
 import org.reactivestreams.Publisher;
+import org.reactivestreams.Subscriber;
+import org.reactivestreams.Subscription;
 import rx.RxReactiveStreams;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-public abstract class WebSocketDuplexConnection implements DuplexConnection {
+public class WebSocketDuplexConnection implements DuplexConnection {
     protected static ThreadLocal<MutableDirectByteBuf> mutableDirectByteBufs = ThreadLocal.withInitial(() -> new MutableDirectByteBuf(Unpooled.buffer()));
 
     protected WebSocketConnection webSocketConnection;
 
     protected CopyOnWriteArrayList<Observer<Frame>> observers;
 
-    private final String type;
-
-
-    protected WebSocketDuplexConnection(WebSocketConnection webSocketConnection, String type) {
+    protected WebSocketDuplexConnection(WebSocketConnection webSocketConnection) {
         this.webSocketConnection = webSocketConnection;
         this.observers = new CopyOnWriteArrayList<>();
-        this.type = type;
 
         webSocketConnection
             .getInput()
@@ -82,6 +80,42 @@ public abstract class WebSocketDuplexConnection implements DuplexConnection {
                 }
             });
 
+    }
+
+    public static WebSocketDuplexConnection create(WebSocketConnection webSocketConnection) {
+        return new WebSocketDuplexConnection(webSocketConnection);
+    }
+
+    public static Publisher<WebSocketDuplexConnection> create(Publisher<WebSocketConnection> webSocketConnection) {
+        Publisher<WebSocketDuplexConnection> duplexConnectionPublisher = new Publisher<WebSocketDuplexConnection>() {
+            @Override
+            public void subscribe(Subscriber<? super WebSocketDuplexConnection> child) {
+                webSocketConnection
+                    .subscribe(new Subscriber<WebSocketConnection>() {
+                        @Override
+                        public void onSubscribe(Subscription s) {
+                            s.request(Long.MAX_VALUE);
+                        }
+
+                        @Override
+                        public void onNext(WebSocketConnection webSocketConnection) {
+                            child.onNext(create(webSocketConnection));
+                        }
+
+                        @Override
+                        public void onError(Throwable t) {
+                            child.onError(t);
+                        }
+
+                        @Override
+                        public void onComplete() {
+                            child.onComplete();
+                        }
+                    });
+            }
+        };
+
+        return duplexConnectionPublisher;
     }
 
     @Override
@@ -122,14 +156,7 @@ public abstract class WebSocketDuplexConnection implements DuplexConnection {
         webSocketConnection
             .writeAndFlushOnEach(binaryWebSocketFrameObservable)
             .doOnCompleted(callback::success)
-            .doOnError(t -> {
-                try {
-                    throw new RuntimeException(type, t);
-                } catch (Throwable tt) {
-                    tt.printStackTrace();
-                }
-                callback.error(t);
-            })
+            .doOnError(callback::error)
                 .subscribe();
             }
 
