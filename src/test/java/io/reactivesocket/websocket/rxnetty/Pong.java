@@ -19,32 +19,25 @@ import io.netty.buffer.ByteBuf;
 import io.reactivesocket.ConnectionSetupHandler;
 import io.reactivesocket.ConnectionSetupPayload;
 import io.reactivesocket.Payload;
-import io.reactivesocket.ReactiveSocket;
 import io.reactivesocket.RequestHandler;
 import io.reactivesocket.exceptions.SetupException;
 import io.reactivesocket.websocket.rxnetty.server.ReactiveSocketWebSocketServer;
-import io.reactivex.netty.protocol.http.client.HttpClient;
 import io.reactivex.netty.protocol.http.server.HttpServer;
-import io.reactivex.netty.protocol.http.ws.WebSocketConnection;
-import io.reactivex.netty.protocol.http.ws.client.WebSocketResponse;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Test;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
 import rx.Observable;
 import rx.RxReactiveStreams;
-import rx.observers.TestSubscriber;
 
-import java.util.concurrent.TimeUnit;
+import java.nio.ByteBuffer;
+import java.util.Random;
 
-public class ClientServerTest {
+public class Pong {
+    public static void main(String... args) {
+        byte[] response = new byte[1024];
+        //byte[] response = new byte[1024];
+        Random r = new Random();
+        r.nextBytes(response);
 
-    static ReactiveSocket client;
-    static HttpServer<ByteBuf, ByteBuf> server;
-
-    @BeforeClass
-    public static void setup() {
         ReactiveSocketWebSocketServer serverHandler =
             ReactiveSocketWebSocketServer.create(new ConnectionSetupHandler() {
                 @Override
@@ -55,9 +48,21 @@ public class ClientServerTest {
                             return new Publisher<Payload>() {
                                 @Override
                                 public void subscribe(Subscriber<? super Payload> s) {
-                                    //System.out.println("Handling request/response payload => " + s.toString());
-                                    Payload response = TestUtil.utf8EncodedPayload("hello world", "metadata");
-                                    s.onNext(response);
+                                    Payload responsePayload = new Payload() {
+                                        ByteBuffer data = ByteBuffer.wrap(response);
+                                        ByteBuffer metadata = ByteBuffer.allocate(0);
+
+                                        public ByteBuffer getData() {
+                                            return data;
+                                        }
+
+                                        @Override
+                                        public ByteBuffer getMetadata() {
+                                            return metadata;
+                                        }
+                                    };
+
+                                    s.onNext(responsePayload);
                                     s.onComplete();
                                 }
                             };
@@ -101,95 +106,13 @@ public class ClientServerTest {
                 }
             });
 
-        server = HttpServer.newServer()
+        HttpServer<ByteBuf, ByteBuf> server = HttpServer.newServer(8888)
 //				.clientChannelOption(ChannelOption.AUTO_READ, true)
 //            .enableWireLogging(LogLevel.ERROR)
             .start((req, resp) -> {
                 return resp.acceptWebSocketUpgrade(serverHandler::acceptWebsocket);
             });
 
-
-        Observable<WebSocketConnection> wsConnection = HttpClient.newClient("localhost", server.getServerPort())
-            //.enableWireLogging(LogLevel.ERROR)
-            .createGet("/rs")
-            .requestWebSocketUpgrade()
-            .flatMap(WebSocketResponse::getWebSocketConnection);
-
-        Publisher<WebSocketDuplexConnection> connectionPublisher = WebSocketDuplexConnection.create(RxReactiveStreams.toPublisher(wsConnection));
-
-        client = RxReactiveStreams
-            .toObservable(connectionPublisher)
-            .map(w -> ReactiveSocket.fromClientConnection(w, ConnectionSetupPayload.create("UTF-8", "UTF-8")))
-            .toBlocking()
-            .single();
-
-        client.startAndWait();
+        server.awaitShutdown();
     }
-
-    @AfterClass
-    public static void tearDown() {
-        server.shutdown();
-    }
-
-    @Test
-    public void testRequestResponse1() {
-        requestResponseN(1500, 1);
-    }
-
-    @Test
-    public void testRequestResponse10() {
-        requestResponseN(1500, 10);
-    }
-
-
-    @Test
-    public void testRequestResponse100() {
-        requestResponseN(1500, 100);
-    }
-
-    @Test
-    public void testRequestResponse10_000() {
-        requestResponseN(60_000, 10_000);
-    }
-
-    @Test
-    public void testRequestStream() {
-        TestSubscriber ts = TestSubscriber.create();
-
-        RxReactiveStreams
-            .toObservable(client.requestStream(TestUtil.utf8EncodedPayload("hello", "metadata")))
-            .subscribe(ts);
-
-
-        ts.awaitTerminalEvent(3_000, TimeUnit.MILLISECONDS);
-        ts.assertValueCount(10);
-        ts.assertNoErrors();
-        ts.assertCompleted();
-    }
-
-    public void requestResponseN(int timeout, int count) {
-
-        TestSubscriber ts = TestSubscriber.create();
-
-        Observable
-            .range(1, count)
-            .flatMap(i ->
-                    RxReactiveStreams
-                        .toObservable(
-                            client.requestResponse(TestUtil.utf8EncodedPayload("hello", "metadata"))
-                        )
-                        .map(payload ->
-                                TestUtil.byteToString(payload.getData())
-                        )
-                        //.doOnNext(System.out::println)
-            )
-            .subscribe(ts);
-
-        ts.awaitTerminalEvent(timeout, TimeUnit.MILLISECONDS);
-        ts.assertValueCount(count);
-        ts.assertNoErrors();
-        ts.assertCompleted();
-    }
-
-
 }
