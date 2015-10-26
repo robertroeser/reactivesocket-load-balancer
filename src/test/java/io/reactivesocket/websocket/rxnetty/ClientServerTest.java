@@ -33,9 +33,11 @@ import org.junit.Test;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
 import rx.Observable;
+import rx.Observer;
 import rx.RxReactiveStreams;
 import rx.observers.TestSubscriber;
 
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 public class ClientServerTest {
@@ -89,7 +91,7 @@ public class ClientServerTest {
                         }
 
                         @Override
-                        public Publisher<Payload> handleChannel(Payload initialPayload, Publisher<Payload> payloads) {
+                        public Publisher<Payload> handleChannel(Publisher<Payload> payloads) {
                             return null;
                         }
 
@@ -102,7 +104,7 @@ public class ClientServerTest {
             });
 
         server = HttpServer.newServer()
-//				.clientChannelOption(ChannelOption.AUTO_READ, true)
+//			  .clientChannelOption(ChannelOption.AUTO_READ, true)
 //            .enableWireLogging(LogLevel.ERROR)
             .start((req, resp) -> {
                 return resp.acceptWebSocketUpgrade(serverHandler::acceptWebsocket);
@@ -119,7 +121,8 @@ public class ClientServerTest {
 
         client = RxReactiveStreams
             .toObservable(connectionPublisher)
-            .map(w -> ReactiveSocket.fromClientConnection(w, ConnectionSetupPayload.create("UTF-8", "UTF-8")))
+            .map(w -> ReactiveSocket.fromClientConnection(w, ConnectionSetupPayload.create
+                ("UTF-8", "UTF-8", ConnectionSetupPayload.NO_FLAGS)))
             .toBlocking()
             .single();
 
@@ -166,6 +169,34 @@ public class ClientServerTest {
         ts.assertNoErrors();
         ts.assertCompleted();
     }
+
+    @Test
+    public void testRequestSubscription() throws InterruptedException {
+        TestSubscriber ts = TestSubscriber.create();
+
+        CountDownLatch latch = new CountDownLatch(10);
+        RxReactiveStreams
+            .toObservable(client.requestSubscription(
+                TestUtil.utf8EncodedPayload("hello sub", "metadata sub"))
+            )
+            .doOnEach(new Observer<Payload>() {
+                @Override
+                public void onCompleted() {}
+
+                @Override
+                public void onError(Throwable e) {}
+
+                @Override
+                public void onNext(Payload payload) {
+                    latch.countDown();
+                }
+            })
+            .subscribe(ts);
+        latch.await();
+        ts.assertValueCount(10);
+        ts.assertNoErrors();
+    }
+
 
     public void requestResponseN(int timeout, int count) {
 
