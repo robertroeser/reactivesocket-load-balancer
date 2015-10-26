@@ -16,6 +16,7 @@
 package io.reactivesocket.websocket.rxnetty;
 
 import io.netty.buffer.ByteBuf;
+import io.netty.channel.ChannelOption;
 import io.reactivesocket.ConnectionSetupHandler;
 import io.reactivesocket.ConnectionSetupPayload;
 import io.reactivesocket.Payload;
@@ -34,7 +35,6 @@ import java.util.Random;
 public class Pong {
     public static void main(String... args) {
         byte[] response = new byte[1024];
-        //byte[] response = new byte[1024];
         Random r = new Random();
         r.nextBytes(response);
 
@@ -70,8 +70,8 @@ public class Pong {
 
                         @Override
                         public Publisher<Payload> handleRequestStream(Payload payload) {
-                            Payload response = TestUtil.utf8EncodedPayload("hello world", "metadata");
-
+                            Payload response =
+                                TestUtil.utf8EncodedPayload("hello world", "metadata");
                             return RxReactiveStreams
                                 .toPublisher(Observable
                                     .range(1, 10)
@@ -80,8 +80,8 @@ public class Pong {
 
                         @Override
                         public Publisher<Payload> handleSubscription(Payload payload) {
-                            Payload response = TestUtil.utf8EncodedPayload("hello world", "metadata");
-
+                            Payload response =
+                                TestUtil.utf8EncodedPayload("hello world", "metadata");
                             return RxReactiveStreams
                                 .toPublisher(Observable
                                     .range(1, 10)
@@ -94,8 +94,53 @@ public class Pong {
                         }
 
                         @Override
-                        public Publisher<Payload> handleChannel(Payload initialPayload, Publisher<Payload> payloads) {
-                            return null;
+                        public Publisher<Payload> handleChannel(Publisher<Payload> inputs) {
+                            Observable<Payload> observable =
+                                RxReactiveStreams
+                                    .toObservable(inputs)
+                                    .map(input -> input);
+                            return RxReactiveStreams.toPublisher(observable);
+
+//                            return outputSubscriber -> {
+//                                inputs.subscribe(new Subscriber<Payload>() {
+//                                    private int count = 0;
+//                                    private boolean completed = false;
+//
+//                                    @Override
+//                                    public void onSubscribe(Subscription s) {
+//                                        //outputSubscriber.onSubscribe(s);
+//                                        s.request(128);
+//                                    }
+//
+//                                    @Override
+//                                    public void onNext(Payload input) {
+//                                        if (completed) {
+//                                            return;
+//                                        }
+//                                        count += 1;
+//                                        outputSubscriber.onNext(input);
+//                                        outputSubscriber.onNext(input);
+//                                        if (count > 10) {
+//                                            completed = true;
+//                                            outputSubscriber.onComplete();
+//                                        }
+//                                    }
+//
+//                                    @Override
+//                                    public void onError(Throwable t) {
+//                                        if (!completed) {
+//                                            outputSubscriber.onError(t);
+//                                        }
+//                                    }
+//
+//                                    @Override
+//                                    public void onComplete() {
+//                                        if (!completed) {
+//                                            outputSubscriber.onComplete();
+//                                        }
+//                                    }
+//                                });
+//                            };
                         }
 
                         @Override
@@ -107,7 +152,7 @@ public class Pong {
             });
 
         HttpServer<ByteBuf, ByteBuf> server = HttpServer.newServer(8888)
-//				.clientChannelOption(ChannelOption.AUTO_READ, true)
+            .clientChannelOption(ChannelOption.AUTO_READ, true)
 //            .enableWireLogging(LogLevel.ERROR)
             .start((req, resp) -> {
                 return resp.acceptWebSocketUpgrade(serverHandler::acceptWebsocket);

@@ -18,11 +18,13 @@ package io.reactivesocket.websocket.rxnetty;
 import io.reactivesocket.ConnectionSetupPayload;
 import io.reactivesocket.Payload;
 import io.reactivesocket.ReactiveSocket;
+import io.reactivesocket.internal.PublisherUtils;
 import io.reactivex.netty.protocol.http.client.HttpClient;
 import io.reactivex.netty.protocol.http.ws.WebSocketConnection;
 import io.reactivex.netty.protocol.http.ws.client.WebSocketResponse;
 import org.HdrHistogram.Recorder;
 import org.reactivestreams.Publisher;
+import org.reactivestreams.Subscription;
 import rx.Observable;
 import rx.RxReactiveStreams;
 import rx.Subscriber;
@@ -42,7 +44,8 @@ public class Ping {
             .requestWebSocketUpgrade()
             .flatMap(WebSocketResponse::getWebSocketConnection);
 
-        Publisher<WebSocketDuplexConnection> connectionPublisher = WebSocketDuplexConnection.create(RxReactiveStreams.toPublisher(wsConnection));
+        Publisher<WebSocketDuplexConnection> connectionPublisher =
+            WebSocketDuplexConnection.create(RxReactiveStreams.toPublisher(wsConnection));
 
         ReactiveSocket reactiveSocket = RxReactiveStreams
             .toObservable(connectionPublisher)
@@ -52,8 +55,7 @@ public class Ping {
 
         reactiveSocket.startAndWait();
 
-        byte[] data = new byte[4];
-        ThreadLocalRandom.current().nextBytes(data);
+        byte[] data = "hello".getBytes();
 
         Payload keyPayload = new Payload() {
             @Override
@@ -67,7 +69,8 @@ public class Ping {
             }
         };
 
-        CountDownLatch latch = new CountDownLatch(Integer.MAX_VALUE);
+        int n = 1_000_000;
+        CountDownLatch latch = new CountDownLatch(n);
         final Recorder histogram = new Recorder(3600000000000L, 3);
 
         Schedulers
@@ -75,7 +78,8 @@ public class Ping {
             .createWorker()
             .schedulePeriodically(() -> {
                 System.out.println("---- PING/ PONG HISTO ----");
-                histogram.getIntervalHistogram().outputPercentileDistribution(System.out, 5, 1000.0, false);
+                histogram.getIntervalHistogram()
+                    .outputPercentileDistribution(System.out, 5, 1000.0, false);
                 System.out.println("---- PING/ PONG HISTO ----");
             }, 10, 10, TimeUnit.SECONDS);
 
@@ -110,8 +114,8 @@ public class Ping {
                 }
             });
 
-        latch.await();
-        System.out.println("Sent => " + Integer.MAX_VALUE);
+        latch.await(1, TimeUnit.HOURS);
+        System.out.println("Sent => " + n);
         System.exit(0);
     }
 }
