@@ -18,13 +18,11 @@ package io.reactivesocket.websocket.rxnetty;
 import io.reactivesocket.ConnectionSetupPayload;
 import io.reactivesocket.Payload;
 import io.reactivesocket.ReactiveSocket;
-import io.reactivesocket.internal.PublisherUtils;
 import io.reactivex.netty.protocol.http.client.HttpClient;
 import io.reactivex.netty.protocol.http.ws.WebSocketConnection;
 import io.reactivex.netty.protocol.http.ws.client.WebSocketResponse;
 import org.HdrHistogram.Recorder;
 import org.reactivestreams.Publisher;
-import org.reactivestreams.Subscription;
 import rx.Observable;
 import rx.RxReactiveStreams;
 import rx.Subscriber;
@@ -32,7 +30,6 @@ import rx.schedulers.Schedulers;
 
 import java.nio.ByteBuffer;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 public class Ping {
