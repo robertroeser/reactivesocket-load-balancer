@@ -48,58 +48,50 @@ public class ClientServerTest {
     @BeforeClass
     public static void setup() {
         ReactiveSocketWebSocketServer serverHandler =
-            ReactiveSocketWebSocketServer.create(new ConnectionSetupHandler() {
+            ReactiveSocketWebSocketServer.create(setupPayload -> new RequestHandler() {
                 @Override
-                public RequestHandler apply(ConnectionSetupPayload setupPayload) throws SetupException {
-                    return new RequestHandler() {
-                        @Override
-                        public Publisher<Payload> handleRequestResponse(Payload payload) {
-                            return new Publisher<Payload>() {
-                                @Override
-                                public void subscribe(Subscriber<? super Payload> s) {
-                                    //System.out.println("Handling request/response payload => " + s.toString());
-                                    Payload response = TestUtil.utf8EncodedPayload("hello world", "metadata");
-                                    s.onNext(response);
-                                    s.onComplete();
-                                }
-                            };
-                        }
-
-                        @Override
-                        public Publisher<Payload> handleRequestStream(Payload payload) {
-                            Payload response = TestUtil.utf8EncodedPayload("hello world", "metadata");
-
-                            return RxReactiveStreams
-                                .toPublisher(Observable
-                                    .range(1, 10)
-                                    .map(i -> response));
-                        }
-
-                        @Override
-                        public Publisher<Payload> handleSubscription(Payload payload) {
-                            Payload response = TestUtil.utf8EncodedPayload("hello world", "metadata");
-
-                            return RxReactiveStreams
-                                .toPublisher(Observable
-                                    .range(1, 10)
-                                    .map(i -> response));
-                        }
-
-                        @Override
-                        public Publisher<Void> handleFireAndForget(Payload payload) {
-                            return Subscriber::onComplete;
-                        }
-
-                        @Override
-                        public Publisher<Payload> handleChannel(Publisher<Payload> payloads) {
-                            return null;
-                        }
-
-                        @Override
-                        public Publisher<Void> handleMetadataPush(Payload payload) {
-                            return null;
-                        }
+                public Publisher<Payload> handleRequestResponse(Payload payload) {
+                    return s -> {
+                        //System.out.println("Handling request/response payload => " + s.toString());
+                        Payload response = TestUtil.utf8EncodedPayload("hello world", "metadata");
+                        s.onNext(response);
+                        s.onComplete();
                     };
+                }
+
+                @Override
+                public Publisher<Payload> handleRequestStream(Payload payload) {
+                    Payload response = TestUtil.utf8EncodedPayload("hello world", "metadata");
+
+                    return RxReactiveStreams
+                        .toPublisher(Observable
+                            .range(1, 10)
+                            .map(i -> response));
+                }
+
+                @Override
+                public Publisher<Payload> handleSubscription(Payload payload) {
+                    Payload response = TestUtil.utf8EncodedPayload("hello world", "metadata");
+
+                    return RxReactiveStreams
+                        .toPublisher(Observable
+                            .range(1, 10)
+                            .map(i -> response));
+                }
+
+                @Override
+                public Publisher<Void> handleFireAndForget(Payload payload) {
+                    return Subscriber::onComplete;
+                }
+
+                @Override
+                public Publisher<Payload> handleChannel(Payload initialPayload, Publisher<Payload> inputs) {
+                    return null;
+                }
+
+                @Override
+                public Publisher<Void> handleMetadataPush(Payload payload) {
+                    return null;
                 }
             });
 
