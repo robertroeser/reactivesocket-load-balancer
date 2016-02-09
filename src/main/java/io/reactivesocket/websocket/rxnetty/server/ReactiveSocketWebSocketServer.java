@@ -24,17 +24,12 @@ import io.reactivex.netty.protocol.http.ws.WebSocketConnection;
 import rx.Observable;
 import uk.co.real_logic.agrona.LangUtil;
 
-import java.util.concurrent.ConcurrentHashMap;
-
 public class ReactiveSocketWebSocketServer {
-    private final ConcurrentHashMap<WebSocketDuplexConnection, ReactiveSocket> reactiveSockets;
-
     private final ConnectionSetupHandler setupHandler;
 
     private final LeaseGovernor leaseGovernor;
 
     private ReactiveSocketWebSocketServer(ConnectionSetupHandler setupHandler, LeaseGovernor leaseGovernor) {
-        this.reactiveSockets = new ConcurrentHashMap<>();
         this.setupHandler = setupHandler;
         this.leaseGovernor = leaseGovernor;
     }
@@ -53,12 +48,22 @@ public class ReactiveSocketWebSocketServer {
                 WebSocketDuplexConnection webSocketDuplexConnection = WebSocketDuplexConnection
                     .create(wsConnection);
 
-                ReactiveSocket reactiveSocket = ReactiveSocket
+                final ReactiveSocket reactiveSocket = ReactiveSocket
                     .fromServerConnection(
                         webSocketDuplexConnection,
                         setupHandler,
                         leaseGovernor,
                         t -> t.printStackTrace());
+
+                wsConnection
+                    .closeListener()
+                    .doOnCompleted(() -> {
+                        try {
+                            reactiveSocket.close();
+                        } catch (Exception e) {
+                            LangUtil.rethrowUnchecked(e);
+                        }
+                    });
 
                 reactiveSocket.start(new Completable() {
                     @Override
@@ -70,23 +75,6 @@ public class ReactiveSocketWebSocketServer {
                         subscriber.onError(e);
                     }
                 });
-
-                reactiveSockets
-                    .putIfAbsent(webSocketDuplexConnection, reactiveSocket);
-
-                wsConnection
-                    .closeListener()
-                    .doOnCompleted(() -> {
-                        reactiveSockets
-                            .remove(webSocketDuplexConnection);
-
-                        try {
-                            reactiveSocket.close();
-                        } catch (Exception e) {
-                            LangUtil.rethrowUnchecked(e);
-                        }
-                    });
             });
     }
-
 }
