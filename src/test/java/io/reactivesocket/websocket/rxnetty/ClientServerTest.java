@@ -16,12 +16,10 @@
 package io.reactivesocket.websocket.rxnetty;
 
 import io.netty.buffer.ByteBuf;
-import io.reactivesocket.ConnectionSetupHandler;
 import io.reactivesocket.ConnectionSetupPayload;
 import io.reactivesocket.Payload;
 import io.reactivesocket.ReactiveSocket;
 import io.reactivesocket.RequestHandler;
-import io.reactivesocket.exceptions.SetupException;
 import io.reactivesocket.websocket.rxnetty.server.ReactiveSocketWebSocketServer;
 import io.reactivex.netty.protocol.http.client.HttpClient;
 import io.reactivex.netty.protocol.http.server.HttpServer;
@@ -33,11 +31,9 @@ import org.junit.Test;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
 import rx.Observable;
-import rx.Observer;
 import rx.RxReactiveStreams;
 import rx.observers.TestSubscriber;
 
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 public class ClientServerTest {
@@ -76,7 +72,8 @@ public class ClientServerTest {
                     return RxReactiveStreams
                         .toPublisher(Observable
                             .range(1, 10)
-                            .map(i -> response));
+                            .map(i -> response)
+                            .repeat());
                 }
 
                 @Override
@@ -98,9 +95,9 @@ public class ClientServerTest {
         server = HttpServer.newServer()
 //			  .clientChannelOption(ChannelOption.AUTO_READ, true)
 //            .enableWireLogging(LogLevel.ERROR)
-            .start((req, resp) -> {
-                return resp.acceptWebSocketUpgrade(serverHandler::acceptWebsocket);
-            });
+            .start((req, resp) ->
+                resp.acceptWebSocketUpgrade(serverHandler::acceptWebsocket)
+            );
 
 
         Observable<WebSocketConnection> wsConnection = HttpClient.newClient("localhost", server.getServerPort())
@@ -149,7 +146,7 @@ public class ClientServerTest {
 
     @Test
     public void testRequestStream() {
-        TestSubscriber ts = TestSubscriber.create();
+        TestSubscriber<Payload> ts = TestSubscriber.create();
 
         RxReactiveStreams
             .toObservable(client.requestStream(TestUtil.utf8EncodedPayload("hello", "metadata")))
@@ -164,27 +161,14 @@ public class ClientServerTest {
 
     @Test
     public void testRequestSubscription() throws InterruptedException {
-        TestSubscriber ts = TestSubscriber.create();
+        TestSubscriber<Payload> ts = TestSubscriber.create();
 
-        CountDownLatch latch = new CountDownLatch(10);
         RxReactiveStreams
-            .toObservable(client.requestSubscription(
-                TestUtil.utf8EncodedPayload("hello sub", "metadata sub"))
-            )
-            .doOnEach(new Observer<Payload>() {
-                @Override
-                public void onCompleted() {}
-
-                @Override
-                public void onError(Throwable e) {}
-
-                @Override
-                public void onNext(Payload payload) {
-                    latch.countDown();
-                }
-            })
+            .toObservable(client.requestSubscription(TestUtil.utf8EncodedPayload("hello sub", "metadata sub")))
+            .take(10)
             .subscribe(ts);
-        latch.await();
+
+        ts.awaitTerminalEvent(3_000, TimeUnit.MILLISECONDS);
         ts.assertValueCount(10);
         ts.assertNoErrors();
     }
@@ -192,7 +176,7 @@ public class ClientServerTest {
 
     public void requestResponseN(int timeout, int count) {
 
-        TestSubscriber ts = TestSubscriber.create();
+        TestSubscriber<String> ts = TestSubscriber.create();
 
         Observable
             .range(1, count)
