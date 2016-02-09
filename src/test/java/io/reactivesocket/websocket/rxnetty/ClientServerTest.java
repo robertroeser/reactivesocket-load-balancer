@@ -99,21 +99,17 @@ public class ClientServerTest {
                 resp.acceptWebSocketUpgrade(serverHandler::acceptWebsocket)
             );
 
-
-        Observable<WebSocketConnection> wsConnection = HttpClient.newClient("localhost", server.getServerPort())
+        Observable<WebSocketConnection> wsConnection = HttpClient.newClient(server.getServerAddress())
             //.enableWireLogging(LogLevel.ERROR)
             .createGet("/rs")
             .requestWebSocketUpgrade()
             .flatMap(WebSocketResponse::getWebSocketConnection);
 
-        Publisher<WebSocketDuplexConnection> connectionPublisher = WebSocketDuplexConnection.create(RxReactiveStreams.toPublisher(wsConnection));
-
-        client = RxReactiveStreams
-            .toObservable(connectionPublisher)
-            .map(w -> ReactiveSocket.fromClientConnection(w, ConnectionSetupPayload.create
-                ("UTF-8", "UTF-8", ConnectionSetupPayload.NO_FLAGS)))
-            .toBlocking()
-            .single();
+        client = wsConnection.map(w ->
+            ReactiveSocket.fromClientConnection(
+                WebSocketDuplexConnection.create(w),
+                ConnectionSetupPayload.create("UTF-8", "UTF-8", ConnectionSetupPayload.NO_FLAGS))
+        ).toSingle().toBlocking().value();
 
         client.startAndWait();
     }
