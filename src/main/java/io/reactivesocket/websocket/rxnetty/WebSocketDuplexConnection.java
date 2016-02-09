@@ -36,8 +36,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-import static io.reactivesocket.websocket.rxnetty.TestUtil.byteBufToString;
-
 public class WebSocketDuplexConnection implements DuplexConnection {
     protected static ThreadLocal<MutableDirectByteBuf> mutableDirectByteBufs = ThreadLocal.withInitial(() -> new MutableDirectByteBuf(Unpooled.buffer()));
 
@@ -70,8 +68,6 @@ public class WebSocketDuplexConnection implements DuplexConnection {
                     try {
                         MutableDirectByteBuf buffer = mutableDirectByteBufs.get();
                         buffer.wrap(content);
-
-//                        System.out.println("Reading \n" + byteBufToString(content) + "\n");
 
                         Frame frame = Frame.from(buffer, 0, buffer.capacity());
 
@@ -152,7 +148,6 @@ public class WebSocketDuplexConnection implements DuplexConnection {
                     .DEFAULT
                     .buffer(byteBuffer.capacity());
                 buf.writeBytes(byteBuffer);
-//                System.out.println("Sending \n" + byteBufToString(buf) + "\n");
 
                 return new BinaryWebSocketFrame(buf);
             });
