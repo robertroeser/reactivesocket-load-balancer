@@ -39,44 +39,47 @@ public class Pong {
             ReactiveSocketWebSocketServer.create(setupPayload -> new RequestHandler() {
                 @Override
                 public Publisher<Payload> handleRequestResponse(Payload payload) {
-                    return s -> {
-                        Payload responsePayload = new Payload() {
-                            ByteBuffer data = ByteBuffer.wrap(response);
-                            ByteBuffer metadata = ByteBuffer.allocate(0);
+                    return new Publisher<Payload>() {
+                        @Override
+                        public void subscribe(Subscriber<? super Payload> s) {
+                            Payload responsePayload = new Payload() {
+                                ByteBuffer data = ByteBuffer.wrap(response);
+                                ByteBuffer metadata = ByteBuffer.allocate(0);
 
-                            public ByteBuffer getData() {
-                                return data;
-                            }
+                                public ByteBuffer getData() {
+                                    return data;
+                                }
 
-                            @Override
-                            public ByteBuffer getMetadata() {
-                                return metadata;
-                            }
-                        };
+                                @Override
+                                public ByteBuffer getMetadata() {
+                                    return metadata;
+                                }
+                            };
 
-                        s.onNext(responsePayload);
-                        s.onComplete();
+                            s.onNext(responsePayload);
+                            s.onComplete();
+                        }
                     };
                 }
 
                 @Override
                 public Publisher<Payload> handleRequestStream(Payload payload) {
-                    Payload response1 =
+                    Payload response =
                         TestUtil.utf8EncodedPayload("hello world", "metadata");
                     return RxReactiveStreams
                         .toPublisher(Observable
                             .range(1, 10)
-                            .map(i -> response1));
+                            .map(i -> response));
                 }
 
                 @Override
                 public Publisher<Payload> handleSubscription(Payload payload) {
-                    Payload response1 =
+                    Payload response =
                         TestUtil.utf8EncodedPayload("hello world", "metadata");
                     return RxReactiveStreams
                         .toPublisher(Observable
                             .range(1, 10)
-                            .map(i -> response1));
+                            .map(i -> response));
                 }
 
                 @Override
