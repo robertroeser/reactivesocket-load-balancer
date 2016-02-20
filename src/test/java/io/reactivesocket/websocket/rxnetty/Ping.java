@@ -93,7 +93,7 @@ public class Ping {
                         long diff = System.nanoTime() - start;
                         histogram.recordValue(diff);
                     });
-            })
+            }, 8)
             .subscribe(new Subscriber<Payload>() {
                 @Override
                 public void onCompleted() {
