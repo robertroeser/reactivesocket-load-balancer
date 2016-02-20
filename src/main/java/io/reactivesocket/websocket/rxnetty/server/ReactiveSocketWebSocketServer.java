@@ -15,66 +15,56 @@
  */
 package io.reactivesocket.websocket.rxnetty.server;
 
+import io.netty.channel.Channel;
+import io.netty.handler.ssl.SslContext;
+import io.netty.util.internal.logging.InternalLogger;
+import io.netty.util.internal.logging.InternalLoggerFactory;
 import io.reactivesocket.ConnectionSetupHandler;
 import io.reactivesocket.LeaseGovernor;
-import io.reactivesocket.ReactiveSocket;
-import io.reactivesocket.rx.Completable;
-import io.reactivesocket.websocket.rxnetty.WebSocketDuplexConnection;
-import io.reactivex.netty.protocol.http.ws.WebSocketConnection;
-import rx.Observable;
-import uk.co.real_logic.agrona.LangUtil;
 
-public class ReactiveSocketWebSocketServer {
+public class ReactiveSocketWebSocketServer implements AutoCloseable {
+    private InternalLogger logger = InternalLoggerFactory.getInstance(ReactiveSocketWebSocketServer.class);
+
     private final ConnectionSetupHandler setupHandler;
 
     private final LeaseGovernor leaseGovernor;
 
-    private ReactiveSocketWebSocketServer(ConnectionSetupHandler setupHandler, LeaseGovernor leaseGovernor) {
+    private Channel channel;
+
+    private SslContext sslContext;
+
+    private ReactiveSocketWebSocketServer(
+        ConnectionSetupHandler setupHandler,
+        LeaseGovernor leaseGovernor,
+        Channel channel,
+        SslContext sslContext) {
         this.setupHandler = setupHandler;
         this.leaseGovernor = leaseGovernor;
+        this.channel = channel;
+        this.sslContext = sslContext;
+
+        init();
     }
 
-    public static ReactiveSocketWebSocketServer create(ConnectionSetupHandler setupHandler) {
-        return create(setupHandler, LeaseGovernor.UNLIMITED_LEASE_GOVERNOR);
+    public static ReactiveSocketWebSocketServer create(ConnectionSetupHandler setupHandler, Channel channel) {
+        return create(setupHandler, LeaseGovernor.UNLIMITED_LEASE_GOVERNOR, channel, null);
     }
 
-    public static ReactiveSocketWebSocketServer create(ConnectionSetupHandler setupHandler, LeaseGovernor leaseGovernor) {
-        return new ReactiveSocketWebSocketServer(setupHandler, leaseGovernor);
+    public static ReactiveSocketWebSocketServer create(ConnectionSetupHandler setupHandler, LeaseGovernor leaseGovernor, Channel channel, SslContext sslContext) {
+        return new
+            ReactiveSocketWebSocketServer(
+            setupHandler,
+            leaseGovernor,
+            channel,
+            sslContext);
+
     }
 
-    public Observable<Void> acceptWebsocket(WebSocketConnection wsConnection) {
-        return Observable
-            .create(subscriber -> {
-                WebSocketDuplexConnection webSocketDuplexConnection = WebSocketDuplexConnection
-                    .create(wsConnection);
+    void init() {
+        channel.pipeline().addLast(new WebSocketServerInitializer(sslContext));
+    }
 
-                final ReactiveSocket reactiveSocket = ReactiveSocket
-                    .fromServerConnection(
-                        webSocketDuplexConnection,
-                        setupHandler,
-                        leaseGovernor,
-                        t -> t.printStackTrace());
-
-                wsConnection
-                    .closeListener()
-                    .doOnCompleted(() -> {
-                        try {
-                            reactiveSocket.close();
-                        } catch (Exception e) {
-                            LangUtil.rethrowUnchecked(e);
-                        }
-                    });
-
-                reactiveSocket.start(new Completable() {
-                    @Override
-                    public void success() {
-                    }
-
-                    @Override
-                    public void error(Throwable e) {
-                        subscriber.onError(e);
-                    }
-                });
-            });
+    @Override
+    public void close() throws Exception {
     }
 }
