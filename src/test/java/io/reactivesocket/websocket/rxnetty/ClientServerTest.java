@@ -15,16 +15,24 @@
  */
 package io.reactivesocket.websocket.rxnetty;
 
-import io.netty.buffer.ByteBuf;
+import io.netty.bootstrap.ServerBootstrap;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelPipeline;
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.socket.nio.NioServerSocketChannel;
+import io.netty.handler.codec.http.HttpObjectAggregator;
+import io.netty.handler.codec.http.HttpServerCodec;
+import io.netty.handler.logging.LogLevel;
+import io.netty.handler.logging.LoggingHandler;
+import io.reactivesocket.ConnectionSetupHandler;
 import io.reactivesocket.ConnectionSetupPayload;
 import io.reactivesocket.Payload;
 import io.reactivesocket.ReactiveSocket;
 import io.reactivesocket.RequestHandler;
-import io.reactivesocket.websocket.rxnetty.server.ReactiveSocketWebSocketServer;
-import io.reactivex.netty.protocol.http.client.HttpClient;
-import io.reactivex.netty.protocol.http.server.HttpServer;
-import io.reactivex.netty.protocol.http.ws.WebSocketConnection;
-import io.reactivex.netty.protocol.http.ws.client.WebSocketResponse;
+import io.reactivesocket.exceptions.SetupException;
+import io.reactivesocket.websocket.netty.client.ClientWebSocketDuplexConnection;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -34,17 +42,18 @@ import rx.Observable;
 import rx.RxReactiveStreams;
 import rx.observers.TestSubscriber;
 
+import java.net.InetSocketAddress;
 import java.util.concurrent.TimeUnit;
 
 public class ClientServerTest {
 
     static ReactiveSocket client;
-    static HttpServer<ByteBuf, ByteBuf> server;
+    static Channel serverChannel;
 
-    @BeforeClass
-    public static void setup() {
-        ReactiveSocketWebSocketServer serverHandler =
-            ReactiveSocketWebSocketServer.create(setupPayload -> new RequestHandler() {
+    static ConnectionSetupHandler connectionSetupHandler = new ConnectionSetupHandler() {
+        @Override
+        public RequestHandler apply(ConnectionSetupPayload setupPayload) throws SetupException {
+            return new RequestHandler() {
                 @Override
                 public Publisher<Payload> handleRequestResponse(Payload payload) {
                     return s -> {
@@ -90,33 +99,47 @@ public class ClientServerTest {
                 public Publisher<Void> handleMetadataPush(Payload payload) {
                     return null;
                 }
+            };
+        }
+    };
+
+    @BeforeClass
+    public static void setup() throws Exception {
+        EventLoopGroup bossGroup = new NioEventLoopGroup(1);
+        EventLoopGroup workerGroup = new NioEventLoopGroup(4);
+
+        ServerBootstrap b = new ServerBootstrap();
+        b.group(bossGroup, workerGroup)
+            .channel(NioServerSocketChannel.class)
+            .handler(new LoggingHandler(LogLevel.INFO))
+            .childHandler(new ChannelInitializer<Channel>() {
+                @Override
+                protected void initChannel(Channel ch) throws Exception {
+                    ChannelPipeline pipeline = ch.pipeline();
+                    pipeline.addLast(new HttpServerCodec());
+                    pipeline.addLast(new HttpObjectAggregator(64 * 1024));
+                    //pipeline.addLast(new WebSocketServerProtocolHandler("/rs"));
+                   //pipeline.addLast(new BinaryFrameToReactiveSocketFrameHandler());
+                    //pipeline.addLast(ReactiveSocketServerHandler.create(connectionSetupHandler));
+                    //pipeline.addLast(new ReactiveSocketFrameToBinaryFrameHandler());
+                }
             });
 
-        server = HttpServer.newServer()
-//			  .clientChannelOption(ChannelOption.AUTO_READ, true)
-//            .enableWireLogging(LogLevel.ERROR)
-            .start((req, resp) ->
-                resp.acceptWebSocketUpgrade(serverHandler::acceptWebsocket)
-            );
+        serverChannel = b.bind("localhost", 8025).sync().channel();
 
-        Observable<WebSocketConnection> wsConnection = HttpClient.newClient(server.getServerAddress())
-            //.enableWireLogging(LogLevel.ERROR)
-            .createGet("/rs")
-            .requestWebSocketUpgrade()
-            .flatMap(WebSocketResponse::getWebSocketConnection);
+        ClientWebSocketDuplexConnection duplexConnection
+            = RxReactiveStreams.toObservable(ClientWebSocketDuplexConnection.create(InetSocketAddress.createUnresolved("localhost", 8025), new NioEventLoopGroup())).toBlocking().last();
 
-        client = wsConnection.map(w ->
-            ReactiveSocket.fromClientConnection(
-                WebSocketDuplexConnection.create(w),
-                ConnectionSetupPayload.create("UTF-8", "UTF-8", ConnectionSetupPayload.NO_FLAGS))
-        ).toSingle().toBlocking().value();
+        client = ReactiveSocket
+            .fromClientConnection(duplexConnection, ConnectionSetupPayload.create("UTF-8", "UTF-8"), t -> t.printStackTrace());
 
         client.startAndWait();
+
     }
 
     @AfterClass
     public static void tearDown() {
-        server.shutdown();
+        serverChannel.close();
     }
 
     @Test
@@ -186,6 +209,7 @@ public class ClientServerTest {
                         )
                         //.doOnNext(System.out::println)
             )
+            .doOnError(Throwable::printStackTrace)
             .subscribe(ts);
 
         ts.awaitTerminalEvent(timeout, TimeUnit.MILLISECONDS);

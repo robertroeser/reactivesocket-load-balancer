@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.reactivesocket.websocket.rxnetty;
+package io.reactivesocket.websocket.netty;
 
 import io.netty.buffer.ByteBuf;
 import uk.co.real_logic.agrona.BitUtil;
