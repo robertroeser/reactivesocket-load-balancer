@@ -1,7 +1,7 @@
-package io.reactivesocket.websocket.rxnetty.server;
+package io.reactivesocket.websocket.netty.server;
 
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.PooledByteBufAllocator;
+import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.websocketx.BinaryWebSocketFrame;
@@ -59,38 +59,27 @@ public class ServerWebSocketDuplexConnection implements DuplexConnection {
     public void addOutput(Publisher<Frame> o, Completable callback) {
         o
             .subscribe(new Subscriber<Frame>() {
-                private Subscription s;
 
                 @Override
                 public void onSubscribe(Subscription s) {
-                    s.request(128);
-                    this.s = s;
+                    s.request(Long.MAX_VALUE);
                 }
 
                 @Override
                 public void onNext(Frame frame) {
                     try {
-                        ByteBuffer byteBuffer = frame.getByteBuffer();
-                        ByteBuf buf = PooledByteBufAllocator
-                            .DEFAULT
-                            .buffer(byteBuffer.capacity());
-                        buf.writeBytes(byteBuffer);
-
-                        BinaryWebSocketFrame binaryWebSocketFrame = new BinaryWebSocketFrame(buf);
-
+                        ByteBuffer data = frame.getByteBuffer();
+                        ByteBuf byteBuf = Unpooled.wrappedBuffer(data);
+                        BinaryWebSocketFrame binaryWebSocketFrame = new BinaryWebSocketFrame(byteBuf);
                         ChannelFuture channelFuture = ctx.writeAndFlush(binaryWebSocketFrame);
                         channelFuture.addListener((Future<? super Void> future) -> {
-                            try {
-                                Throwable cause = future.cause();
-                                if (cause != null) {
-                                    callback.error(cause);
-                                }
-                            } finally {
-                                s.request(1);
+                            Throwable cause = future.cause();
+                            if (cause != null) {
+                                cause.printStackTrace();
+                                callback.error(cause);
                             }
                         });
                     } catch (Throwable t) {
-                        s.request(1);
                         onError(t);
                     }
                 }

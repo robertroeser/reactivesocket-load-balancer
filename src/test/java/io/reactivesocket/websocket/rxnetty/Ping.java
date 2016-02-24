@@ -15,12 +15,11 @@
  */
 package io.reactivesocket.websocket.rxnetty;
 
+import io.netty.channel.nio.NioEventLoopGroup;
 import io.reactivesocket.ConnectionSetupPayload;
 import io.reactivesocket.Payload;
 import io.reactivesocket.ReactiveSocket;
-import io.reactivex.netty.protocol.http.client.HttpClient;
-import io.reactivex.netty.protocol.http.ws.WebSocketConnection;
-import io.reactivex.netty.protocol.http.ws.client.WebSocketResponse;
+import io.reactivesocket.websocket.netty.client.ClientWebSocketDuplexConnection;
 import org.HdrHistogram.Recorder;
 import org.reactivestreams.Publisher;
 import rx.Observable;
@@ -28,27 +27,17 @@ import rx.RxReactiveStreams;
 import rx.Subscriber;
 import rx.schedulers.Schedulers;
 
+import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 public class Ping {
     public static void main(String... args) throws Exception {
+        Publisher<ClientWebSocketDuplexConnection> publisher = ClientWebSocketDuplexConnection.create(InetSocketAddress.createUnresolved("localhost", 8025), new NioEventLoopGroup(1));
 
-        Observable<WebSocketConnection> wsConnection = HttpClient.newClient("localhost", 8888)
-            //.enableWireLogging(LogLevel.ERROR)
-            .createGet("/rs")
-            .requestWebSocketUpgrade()
-            .flatMap(WebSocketResponse::getWebSocketConnection);
-
-        Publisher<WebSocketDuplexConnection> connectionPublisher =
-            WebSocketDuplexConnection.create(RxReactiveStreams.toPublisher(wsConnection));
-
-        ReactiveSocket reactiveSocket = RxReactiveStreams
-            .toObservable(connectionPublisher)
-            .map(w -> ReactiveSocket.fromClientConnection(w, ConnectionSetupPayload.create("UTF-8", "UTF-8")))
-            .toBlocking()
-            .single();
+        ClientWebSocketDuplexConnection duplexConnection = RxReactiveStreams.toObservable(publisher).toBlocking().last();
+        ReactiveSocket reactiveSocket = ReactiveSocket.fromClientConnection(duplexConnection, ConnectionSetupPayload.create("UTF-8", "UTF-8"), t -> t.printStackTrace());
 
         reactiveSocket.startAndWait();
 
@@ -78,7 +67,7 @@ public class Ping {
                 histogram.getIntervalHistogram()
                     .outputPercentileDistribution(System.out, 5, 1000.0, false);
                 System.out.println("---- PING/ PONG HISTO ----");
-            }, 10, 10, TimeUnit.SECONDS);
+            }, 1, 1, TimeUnit.SECONDS);
 
         Observable
             .range(1, Integer.MAX_VALUE)
@@ -93,7 +82,7 @@ public class Ping {
                         long diff = System.nanoTime() - start;
                         histogram.recordValue(diff);
                     });
-            }, 8)
+            }, 16)
             .subscribe(new Subscriber<Payload>() {
                 @Override
                 public void onCompleted() {

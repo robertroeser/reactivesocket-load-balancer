@@ -15,12 +15,21 @@
  */
 package io.reactivesocket.websocket.rxnetty;
 
-import io.netty.buffer.ByteBuf;
-import io.netty.channel.ChannelOption;
+import io.netty.bootstrap.ServerBootstrap;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelPipeline;
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.socket.nio.NioServerSocketChannel;
+import io.netty.handler.codec.http.HttpObjectAggregator;
+import io.netty.handler.codec.http.HttpServerCodec;
+import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler;
+import io.netty.handler.logging.LogLevel;
+import io.netty.handler.logging.LoggingHandler;
 import io.reactivesocket.Payload;
 import io.reactivesocket.RequestHandler;
-import io.reactivesocket.websocket.rxnetty.server.ReactiveSocketWebSocketServer;
-import io.reactivex.netty.protocol.http.server.HttpServer;
+import io.reactivesocket.websocket.netty.server.ReactiveSocketServerHandler;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
 import rx.Observable;
@@ -30,13 +39,13 @@ import java.nio.ByteBuffer;
 import java.util.Random;
 
 public class Pong {
-    public static void main(String... args) {
+    public static void main(String... args) throws Exception {
         byte[] response = new byte[1024];
         Random r = new Random();
         r.nextBytes(response);
 
-        ReactiveSocketWebSocketServer serverHandler =
-            ReactiveSocketWebSocketServer.create(setupPayload -> new RequestHandler() {
+        ReactiveSocketServerHandler serverHandler =
+            ReactiveSocketServerHandler.create(setupPayload -> new RequestHandler() {
                 @Override
                 public Publisher<Payload> handleRequestResponse(Payload payload) {
                     return new Publisher<Payload>() {
@@ -143,13 +152,26 @@ public class Pong {
                 }
             });
 
-        HttpServer<ByteBuf, ByteBuf> server = HttpServer.newServer(8888)
-            .clientChannelOption(ChannelOption.AUTO_READ, true)
-//            .enableWireLogging(LogLevel.ERROR)
-            .start((req, resp) -> {
-                return resp.acceptWebSocketUpgrade(serverHandler::acceptWebsocket);
+        EventLoopGroup bossGroup = new NioEventLoopGroup(1);
+        EventLoopGroup workerGroup = new NioEventLoopGroup();
+
+        ServerBootstrap b = new ServerBootstrap();
+        b.group(bossGroup, workerGroup)
+            .channel(NioServerSocketChannel.class)
+            .handler(new LoggingHandler(LogLevel.INFO))
+            .childHandler(new ChannelInitializer<Channel>() {
+                @Override
+                protected void initChannel(Channel ch) throws Exception {
+                    ChannelPipeline pipeline = ch.pipeline();
+                    pipeline.addLast(new HttpServerCodec());
+                    pipeline.addLast(new HttpObjectAggregator(64 * 1024));
+                    pipeline.addLast(new WebSocketServerProtocolHandler("/rs"));
+                    pipeline.addLast(serverHandler);
+                }
             });
 
-        server.awaitShutdown();
+        Channel localhost = b.bind("localhost", 8025).sync().channel();
+        localhost.closeFuture().sync();
+
     }
 }
