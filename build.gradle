@@ -1,38 +1,29 @@
 buildscript {
-  repositories {
-      jcenter()
-   }
+    repositories {
+        jcenter()
+    }
 
-  dependencies { classpath 'io.reactivesocket:gradle-nebula-plugin-reactivesocket:1.0.1' }
+    dependencies { classpath 'io.reactivesocket:gradle-nebula-plugin-reactivesocket:1.0.1' }
 }
 
 description = 'ReactiveSocket: stream oriented messaging passing with Reactive Stream semantics.'
 
 apply plugin: 'reactivesocket-project'
-apply plugin: 'java'
 
-repositories {
-    maven { url 'https://oss.jfrog.org/libs-snapshot' }
-}
+subprojects {
+    apply plugin: 'java'
+    sourceCompatibility = 1.8
+    repositories {
+        maven { url 'https://oss.jfrog.org/libs-snapshot' }
+    }
 
-dependencies {
-	compile 'io.reactivex:rxjava:1.1.0'
-    compile 'io.reactivex:rxjava-reactive-streams:1.0.1'
-compile 'io.netty:netty-all:4.1.0.CR3'
-compile 'io.reactivesocket:reactivesocket:0.0.2-SNAPSHOT'
-    testCompile 'junit:junit:4.12'
-    testCompile 'org.mockito:mockito-core:1.8.5'
-    testCompile 'org.hdrhistogram:HdrHistogram:2.1.7'
-    testRuntime 'org.slf4j:slf4j-log4j12:1.7.6'
-}
+    // support for snapshot/final releases via versioned branch names like 1.x
+    nebulaRelease {
+        addReleaseBranchPattern(/\d+\.\d+\.\d+/)
+        addReleaseBranchPattern('HEAD')
+    }
 
-
-// support for snapshot/final releases via versioned branch names like 1.x
-nebulaRelease {
-    addReleaseBranchPattern(/\d+\.\d+\.\d+/)
-    addReleaseBranchPattern('HEAD')
-}
-
-if (project.hasProperty('release.useLastTag')) {
-    tasks.prepare.enabled = false
+    if (project.hasProperty('release.useLastTag')) {
+        tasks.prepare.enabled = false
+    }
 }
