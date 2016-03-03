@@ -1,6 +1,4 @@
-# ReactiveSocket WebSockets with RxNetty
-
-This is an implementation of ReactiveSocket over WebSockets using RxNetty.
+# ReactiveSocket load balancer
 
 ## Master Build Status
 
