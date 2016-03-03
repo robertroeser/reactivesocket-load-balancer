@@ -13,18 +13,15 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class FailureAwareReactiveSocketClient implements ReactiveSocketClient {
     private final ReactiveSocketClient child;
-    private final long window;
-    private final AtomicLong success;
-    private final AtomicLong failure;
-    private volatile long lastWindowTs;
+    private final long epoch = System.nanoTime();
+    private final double tau;
+
+    private long stamp = epoch;
+    private volatile double ewmaErrorPercentage = 1.0; // 1.0 = 100% success, 0.0 = 0% successes
 
     public FailureAwareReactiveSocketClient(ReactiveSocketClient child, long window, TimeUnit unit) {
         this.child = child;
-        this.window = unit.toNanos(window);
-        this.success = new AtomicLong();
-        this.failure = new AtomicLong();
-
-        this.lastWindowTs = System.nanoTime();
+        this.tau = unit.toNanos(window);
     }
 
     @Override
@@ -32,27 +29,11 @@ public class FailureAwareReactiveSocketClient implements ReactiveSocketClient {
         double childAvailability = child.availability();
 
         // If the window is expired set success and failure to zero and return the child availability
-        if ((System.nanoTime() - lastWindowTs) > window) {
-            success.set(0);
-            failure.set(0);
-
-            return childAvailability;
-        } else {
-            long success = this.success.get();
-            long failure = this.failure.get();
-
-            // return 0 if only failures
-            if (success == 0 && failure > 0) {
-                return 0;
-            }
-            // return the childAvailability if success and failure are both zero
-            else if (success == 0 && failure == 0) {
-                return childAvailability;
-            }
-            else {
-                return childAvailability * (success / (success + failure));
-            }
+        if ((System.nanoTime() - stamp) > tau) {
+            updateErrorPercentage(1.0);
         }
+
+        return childAvailability * ewmaErrorPercentage;
     }
 
     @Override
@@ -66,13 +47,13 @@ public class FailureAwareReactiveSocketClient implements ReactiveSocketClient {
 
                 @Override
                 public void onNext(Payload payload) {
-                    success.incrementAndGet();
+                    updateErrorPercentage(1.0);
                     s.onNext(payload);
                 }
 
                 @Override
                 public void onError(Throwable t) {
-                    failure.incrementAndGet();
+                    updateErrorPercentage(0.0);
                     s.onError(t);
                 }
 
@@ -81,6 +62,20 @@ public class FailureAwareReactiveSocketClient implements ReactiveSocketClient {
                     s.onComplete();
                 }
             });
+    }
+
+    /**
+     *
+     * @param value 1.0 for success, 0.0 for a failure
+     */
+    private void updateErrorPercentage(double value) {
+        long t = System.nanoTime();
+        long td = Math.max(t - stamp, 0L);
+        double w = Math.exp(-td / tau);
+        synchronized(this) {
+            ewmaErrorPercentage = ewmaErrorPercentage * w + value * (1.0 - w);
+        }
+        stamp = t;
     }
 
     @Override
