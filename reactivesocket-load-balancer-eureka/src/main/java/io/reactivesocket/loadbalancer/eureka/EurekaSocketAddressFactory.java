@@ -3,7 +3,6 @@ package io.reactivesocket.loadbalancer.eureka;
 import com.netflix.appinfo.InstanceInfo;
 import com.netflix.discovery.DiscoveryClient;
 import io.reactivesocket.loadbalancer.ClosedConnectionsProvider;
-import io.reactivesocket.loadbalancer.ReactiveSocketLoadBalancer;
 import io.reactivesocket.loadbalancer.SocketAddressFactory;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;

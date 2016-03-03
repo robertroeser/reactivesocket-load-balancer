@@ -9,6 +9,8 @@ import io.reactivesocket.rx.Completable;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import uk.co.real_logic.agrona.LangUtil;
 
 import java.net.Inet4Address;
@@ -24,9 +26,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 /**
- * Created by rroeser on 2/28/16.
+ * An implementation of {@link ReactiveSocketFactory} that creates Aeron ReactiveSockets.
  */
 public class AeronReactiveSocketFactory implements ReactiveSocketFactory {
+    private static final Logger logger = LoggerFactory.getLogger(AeronReactiveSocketFactory.class);
+
     private final ConnectionSetupPayload connectionSetupPayload;
     private final Consumer<Throwable> errorStream;
 
@@ -41,9 +45,10 @@ public class AeronReactiveSocketFactory implements ReactiveSocketFactory {
         try {
             InetAddress iPv4InetAddress = getIPv4InetAddress();
             InetSocketAddress inetSocketAddress = new InetSocketAddress(iPv4InetAddress, port);
-
+            logger.info("Listen to ReactiveSocket Aeron response on host {} port {}", iPv4InetAddress.getHostAddress(), port);
             AeronClientDuplexConnectionFactory.getInstance().addSocketAddressToHandleResponses(inetSocketAddress);
         } catch (Exception e) {
+            logger.error(e.getMessage(), e);
             LangUtil.rethrowUnchecked(e);
         }
     }
@@ -53,52 +58,47 @@ public class AeronReactiveSocketFactory implements ReactiveSocketFactory {
         Publisher<AeronClientDuplexConnection> aeronClientDuplexConnection
             = AeronClientDuplexConnectionFactory.getInstance().createAeronClientDuplexConnection(address);
 
-        Publisher<ReactiveSocket> publisher = new Publisher<ReactiveSocket>() {
-            @Override
-            public void subscribe(Subscriber<? super ReactiveSocket> s) {
-                aeronClientDuplexConnection
-                    .subscribe(new Subscriber<AeronClientDuplexConnection>() {
-                        @Override
-                        public void onSubscribe(Subscription s) {
-                            s.request(1);
-                        }
+        return (Subscriber<? super ReactiveSocket> s) ->
+            aeronClientDuplexConnection
+                .subscribe(new Subscriber<AeronClientDuplexConnection>() {
+                    @Override
+                    public void onSubscribe(Subscription s) {
+                        s.request(1);
+                    }
 
-                        @Override
-                        public void onNext(AeronClientDuplexConnection connection) {
-                            ReactiveSocket reactiveSocket = ReactiveSocket.fromClientConnection(connection, connectionSetupPayload, errorStream);
-                            CountDownLatch latch = new CountDownLatch(1);
-                            reactiveSocket.start(new Completable() {
-                                @Override
-                                public void success() {
-                                    latch.countDown();
-                                    s.onComplete();
-                                }
+                    @Override
+                    public void onNext(AeronClientDuplexConnection connection) {
+                        ReactiveSocket reactiveSocket = ReactiveSocket.fromClientConnection(connection, connectionSetupPayload, errorStream);
+                        CountDownLatch latch = new CountDownLatch(1);
+                        reactiveSocket.start(new Completable() {
+                            @Override
+                            public void success() {
+                                latch.countDown();
+                                s.onComplete();
+                            }
 
-                                @Override
-                                public void error(Throwable e) {
-                                    s.onError(e);
-                                }
-                            });
-
-                            try {
-                                latch.await(timeout, timeUnit);
-                            } catch (InterruptedException e) {
+                            @Override
+                            public void error(Throwable e) {
                                 s.onError(e);
                             }
+                        });
+
+                        try {
+                            latch.await(timeout, timeUnit);
+                        } catch (InterruptedException e) {
+                            logger.error(e.getMessage(), e);
+                            s.onError(e);
                         }
+                    }
 
-                        @Override
-                        public void onError(Throwable t) {
-                            s.onError(t);
-                        }
+                    @Override
+                    public void onError(Throwable t) {
+                        s.onError(t);
+                    }
 
-                        @Override
-                        public void onComplete() {}
-                    });
-            }
-        };
-
-        return publisher;
+                    @Override
+                    public void onComplete() {}
+                });
     }
 
     private static InetAddress getIPv4InetAddress() throws SocketException, UnknownHostException {
