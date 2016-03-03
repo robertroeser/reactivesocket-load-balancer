@@ -3,7 +3,7 @@ package io.reactivesocket.loadbalancer;
 /**
  * XORShiftRandom that uses a Threadlocal variable to make it thread-safe.
  */
-class XORShiftRandom {
+public class XORShiftRandom {
     private static final ThreadLocal<XORShiftRandom> INSTANCES = ThreadLocal.withInitial(XORShiftRandom::new);
 
     private long x;
