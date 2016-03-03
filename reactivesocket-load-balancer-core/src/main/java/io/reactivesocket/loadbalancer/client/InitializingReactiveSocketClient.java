@@ -52,20 +52,18 @@ public class InitializingReactiveSocketClient implements ReactiveSocketClient {
 
     @Override
     public double availability() {
-        double availability = 1;
+        double availability = 0.0;
         if (reactiveSocket != null) {
             availability = reactiveSocket.availability();
-        } else if (reactiveSocket == null) {
-            if ((System.nanoTime() - connectionFailureTimestamp) > retryWindowUnit.toNanos(timeout)) {
-                availability = 1;
-            } else {
-                availability = 0;
+        } else {
+            long elapsed = System.nanoTime() - connectionFailureTimestamp;
+            if (elapsed > retryWindowUnit.toNanos(timeout)) {
+                availability = 1.0;
             }
         }
         
         return availability;
     }
-        
 
     @Override
     public Publisher<Payload> requestResponse(Payload payload) {
@@ -83,7 +81,8 @@ public class InitializingReactiveSocketClient implements ReactiveSocketClient {
                             }
 
                             @Override
-                            public void onNext(ReactiveSocket reactiveSocket) {
+                            public void onNext(ReactiveSocket rSocket) {
+                                reactiveSocket = rSocket;
                                 reactiveSocket
                                     .requestResponse(payload)
                                     .subscribe(new Subscriber<Payload>() {

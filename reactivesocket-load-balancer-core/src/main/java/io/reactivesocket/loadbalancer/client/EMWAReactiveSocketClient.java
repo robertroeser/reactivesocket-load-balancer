@@ -67,7 +67,7 @@ public class EMWAReactiveSocketClient implements ReactiveSocketClient {
             });
     }
 
-    double getWeight() {
+    private double getWeight() {
         double weight;
         observe(0.0);
         if (cost == 0.0 && pending != 0) {
@@ -76,20 +76,22 @@ public class EMWAReactiveSocketClient implements ReactiveSocketClient {
             weight = cost * (pending+1);
         }
 
-        return weight == 0 ? 1 : weight;
+        return weight == 0.0 ? 1.0 : weight;
     }
 
 
-    void observe(double rtt) {
+    private void observe(double rtt) {
         long t = System.nanoTime();
         long td = Math.max(t - stamp, 0L);
+        double tau;
+        // different convergence speed (i.e. go up faster that you go down)
         if (rtt > cost) {
-            double w = Math.exp(-td / tauUp);
-            cost = cost * w + rtt * (1.0 - w);
+            tau = tauUp;
         } else {
-            double w = Math.exp(-td / tauDown);
-            cost = cost * w + rtt * (1.0 - w);
+            tau = tauDown;
         }
+        double w = Math.exp(-td / tau);
+        cost = cost * w + rtt * (1.0 - w);
         stamp = t;
     }
 
