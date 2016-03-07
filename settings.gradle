@@ -1,4 +1,5 @@
 rootProject.name='reactivesocket-load-balancer'
 include 'reactivesocket-load-balancer-core', 'reactivesocket-load-balancer-aeron'
 include 'reactivesocket-load-balancer-eureka'
+include 'reactivesocket-load-balancer-servo'
 
