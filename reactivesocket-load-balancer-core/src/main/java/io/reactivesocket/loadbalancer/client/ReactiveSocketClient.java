@@ -20,7 +20,7 @@ public interface ReactiveSocketClient extends AutoCloseable {
     Publisher<Payload> requestResponse(Payload payload);
 
     /**
-     * Convient way to delegate your request/response to the another ReactiveSocketClient. You call this inside a
+     * Convenient way to delegate your request/response to the another ReactiveSocketClient. You call this inside a
      * {@link Publisher}
      * @param subscriber the subscriber from the outer publisher
      * @param client the reactivesocket client to delegate too
@@ -47,6 +47,75 @@ public interface ReactiveSocketClient extends AutoCloseable {
 
                 @Override
                 public void onComplete() {
+                    subscriber.onComplete();
+                }
+            });
+    }
+
+    /**
+     * Convenient way to delegate your request/response to the another ReactiveSocketClient. You call this inside a
+     * {@link Publisher}
+     * @param subscriber the subscriber from the outer publisher
+     * @param client the reactivesocket client to delegate too
+     * @param payload the payload that is being sent
+     */
+    default void delegateRequestResponse(Subscriber<? super Payload> subscriber, ReactiveSocketClient client, Payload payload, Runnable doOnComplete) {
+        client
+            .requestResponse(payload)
+            .subscribe(new Subscriber<Payload>() {
+                @Override
+                public void onSubscribe(Subscription s) {
+                    s.request(1);
+                }
+
+                @Override
+                public void onNext(Payload payload) {
+                    subscriber.onNext(payload);
+                }
+
+                @Override
+                public void onError(Throwable t) {
+                    subscriber.onError(t);
+                }
+
+                @Override
+                public void onComplete() {
+                    doOnComplete.run();
+                    subscriber.onComplete();
+                }
+            });
+    }
+
+    /**
+     * Convenient way to delegate your request/response to the another ReactiveSocketClient. You call this inside a
+     * {@link Publisher}
+     * @param subscriber the subscriber from the outer publisher
+     * @param client the reactivesocket client to delegate too
+     * @param payload the payload that is being sent
+     */
+    default void delegateRequestResponse(Subscriber<? super Payload> subscriber, ReactiveSocketClient client, Payload payload, Runnable doOnComplete, Runnable doOnError) {
+        client
+            .requestResponse(payload)
+            .subscribe(new Subscriber<Payload>() {
+                @Override
+                public void onSubscribe(Subscription s) {
+                    s.request(1);
+                }
+
+                @Override
+                public void onNext(Payload payload) {
+                    subscriber.onNext(payload);
+                }
+
+                @Override
+                public void onError(Throwable t) {
+                    doOnError.run();
+                    subscriber.onError(t);
+                }
+
+                @Override
+                public void onComplete() {
+                    doOnComplete.run();
                     subscriber.onComplete();
                 }
             });

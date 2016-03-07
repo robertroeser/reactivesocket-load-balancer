@@ -9,6 +9,7 @@ import io.reactivesocket.loadbalancer.client.FailureAwareReactiveSocketClient;
 import io.reactivesocket.loadbalancer.client.InitializingReactiveSocketClient;
 import io.reactivesocket.loadbalancer.client.LoadBalancerReactiveSocketClient;
 import io.reactivesocket.loadbalancer.client.ReactiveSocketClient;
+import io.reactivesocket.loadbalancer.servo.ServoMetricsReactiveSocketClient;
 
 import java.util.concurrent.TimeUnit;
 
@@ -54,7 +55,10 @@ public class EurekaReactiveSocketClientFactory implements ReactiveSocketClientFa
             },
             () -> XORShiftRandom.getInstance().randomInt());
 
-        return loadBalancerReactiveSocketClient;
+
+        ServoMetricsReactiveSocketClient servoMetricsReactiveSocketClient = new ServoMetricsReactiveSocketClient(loadBalancerReactiveSocketClient, config.vip);
+
+        return servoMetricsReactiveSocketClient;
     }
     
     public static class EurekaReactiveSocketClientFactoryConfig {

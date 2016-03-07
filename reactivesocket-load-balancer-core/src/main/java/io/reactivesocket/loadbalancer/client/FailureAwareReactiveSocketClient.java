@@ -6,7 +6,6 @@ import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
 
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * ReactiveSocketClient that keeps track of successes and failures and uses them to compute availability.
