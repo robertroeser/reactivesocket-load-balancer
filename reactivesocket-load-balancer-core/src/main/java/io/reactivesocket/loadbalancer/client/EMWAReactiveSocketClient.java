@@ -17,7 +17,7 @@ public class EMWAReactiveSocketClient implements ReactiveSocketClient {
     private final ReactiveSocketClient child;
 
     private volatile long stamp = epoch;  // last timestamp in nanos we observed an rtt
-    private volatile int pending = 0;     // instantaneous rate
+    volatile int pending = 0;     // instantaneous rate
     private volatile double cost = 0.0;   // ewma of rtt, sensitive to peaks.
 
     public EMWAReactiveSocketClient(ReactiveSocketClient child,
@@ -32,18 +32,21 @@ public class EMWAReactiveSocketClient implements ReactiveSocketClient {
     public double availability() {
         double childAvailability = child.availability();
 
-        return (1/getWeight()) * childAvailability;
+        return (1 / getWeight()) * childAvailability;
     }
 
     @Override
     public Publisher<Payload> requestResponse(Payload payload) {
-        final long start = System.nanoTime();
-        pending += 1;
 
         return s ->
             child.requestResponse(payload).subscribe(new Subscriber<Payload>() {
+
+                final long start = System.nanoTime();
+
                 @Override
                 public void onSubscribe(Subscription s) {
+
+                    pending += 1;
                     s.request(1);
                 }
 
@@ -63,6 +66,7 @@ public class EMWAReactiveSocketClient implements ReactiveSocketClient {
                 public void onComplete() {
                     pending -= 1;
                     observe(System.nanoTime() - start);
+                    s.onComplete();
                 }
             });
     }

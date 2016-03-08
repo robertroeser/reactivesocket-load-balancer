@@ -1,6 +1,7 @@
-package io.reactivesocket.loadbalancer.servo;
+package io.reactivesocket.loadbalancer.servo.internal;
 
 import com.netflix.servo.tag.Tag;
+import org.HdrHistogram.ConcurrentHistogram;
 import org.HdrHistogram.Histogram;
 
 import java.io.ByteArrayOutputStream;
@@ -32,7 +33,7 @@ public class HdrHistogramServoTimer {
     private ThreadLocalAdderCounter p99_99;
 
     private HdrHistogramServoTimer(String label) {
-        this.histogram = new Histogram(TimeUnit.MINUTES.toNanos(1), 2);
+        this.histogram = new ConcurrentHistogram(TimeUnit.MINUTES.toNanos(1), 2);
 
         min = ThreadLocalAdderCounter.newThreadLocalAdderCounter(label + "_min");
         max = ThreadLocalAdderCounter.newThreadLocalAdderCounter(label + "_max");
@@ -45,7 +46,7 @@ public class HdrHistogramServoTimer {
 
 
     private HdrHistogramServoTimer(String label, List<Tag> tags) {
-        this.histogram = new Histogram(TimeUnit.MINUTES.toNanos(1), 2);
+        this.histogram = new ConcurrentHistogram(TimeUnit.MINUTES.toNanos(1), 2);
 
         min = ThreadLocalAdderCounter.newThreadLocalAdderCounter(label + "_min", tags);
         max = ThreadLocalAdderCounter.newThreadLocalAdderCounter(label + "_max", tags);

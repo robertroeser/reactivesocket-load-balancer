@@ -1,9 +1,8 @@
 dependencies {
     compile 'io.reactivesocket:reactivesocket:0.0.1-SNAPSHOT'
 
-    testCompile 'junit:junit:4.12'
-    testCompile 'org.mockito:mockito-core:1.8.5'
-    testCompile 'org.hdrhistogram:HdrHistogram:2.1.7'
-    testRuntime 'org.slf4j:slf4j-log4j12:1.7.6'
+    testCompile group: 'junit', name: 'junit', version: '4.11'
+    testCompile 'io.reactivex:rxjava:1.1.1'
+    testCompile 'io.reactivex:rxjava-reactive-streams:1.0.1'
 }
 
