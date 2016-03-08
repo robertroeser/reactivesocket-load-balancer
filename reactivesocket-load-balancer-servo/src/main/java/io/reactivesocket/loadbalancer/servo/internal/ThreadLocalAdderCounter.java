@@ -1,4 +1,4 @@
-package io.reactivesocket.loadbalancer.servo;
+package io.reactivesocket.loadbalancer.servo.internal;
 
 import com.netflix.servo.DefaultMonitorRegistry;
 import com.netflix.servo.annotations.DataSourceType;

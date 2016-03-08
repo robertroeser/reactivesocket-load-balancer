@@ -1,4 +1,4 @@
-package io.reactivesocket.loadbalancer.servo;
+package io.reactivesocket.loadbalancer.servo.internal;
 
 import uk.co.real_logic.agrona.UnsafeAccess;
 

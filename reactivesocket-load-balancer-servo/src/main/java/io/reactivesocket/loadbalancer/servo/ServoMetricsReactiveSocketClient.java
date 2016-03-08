@@ -2,6 +2,8 @@ package io.reactivesocket.loadbalancer.servo;
 
 import io.reactivesocket.Payload;
 import io.reactivesocket.loadbalancer.client.ReactiveSocketClient;
+import io.reactivesocket.loadbalancer.servo.internal.HdrHistogramServoTimer;
+import io.reactivesocket.loadbalancer.servo.internal.ThreadLocalAdderCounter;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
 
@@ -13,11 +15,11 @@ public class ServoMetricsReactiveSocketClient implements ReactiveSocketClient {
 
     private final String prefix;
 
-    private final ThreadLocalAdderCounter success;
+    final ThreadLocalAdderCounter success;
 
-    private final ThreadLocalAdderCounter failure;
+    final ThreadLocalAdderCounter failure;
 
-    private final HdrHistogramServoTimer timer;
+    final HdrHistogramServoTimer timer;
 
     public ServoMetricsReactiveSocketClient(ReactiveSocketClient child, String prefix) {
         this.child = child;
