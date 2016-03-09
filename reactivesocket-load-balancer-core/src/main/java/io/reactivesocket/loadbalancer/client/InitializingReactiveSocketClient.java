@@ -58,7 +58,7 @@ public class InitializingReactiveSocketClient implements ReactiveSocketClient {
             availability = reactiveSocket.availability();
         } else {
             long elapsed = System.nanoTime() - connectionFailureTimestamp;
-            if (elapsed > retryWindowUnit.toNanos(timeout)) {
+            if (elapsed > retryWindowUnit.toNanos(connectionFailureRetryWindow)) {
                 availability = 1.0;
             }
         }
@@ -70,9 +70,9 @@ public class InitializingReactiveSocketClient implements ReactiveSocketClient {
     public Publisher<Payload> requestResponse(Payload payload) {
         if (reactiveSocket == null) {
             if (guard.tryAcquire()) {
-                Publisher<ReactiveSocket> reactiveSocketPublisher 
+                Publisher<ReactiveSocket> reactiveSocketPublisher
                     = reactiveSocketFactory.call(socketAddress, timeout, unit);
-                
+
                 return s -> {
                     s.onSubscribe(EmptySubscription.INSTANCE);
                     reactiveSocketPublisher
@@ -100,7 +100,6 @@ public class InitializingReactiveSocketClient implements ReactiveSocketClient {
 
                                         @Override
                                         public void onError(Throwable t) {
-                                            connectionFailureTimestamp = System.nanoTime();
                                             s.onError(t);
                                         }
 
@@ -113,6 +112,7 @@ public class InitializingReactiveSocketClient implements ReactiveSocketClient {
 
                             @Override
                             public void onError(Throwable t) {
+                                connectionFailureTimestamp = System.nanoTime();
                                 guard.release();
                                 s.onError(t);
                                 awaitingReactiveSocket.forEach(c -> c.error(t));
