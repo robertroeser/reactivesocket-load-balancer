@@ -11,10 +11,12 @@ import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
 import rx.RxReactiveStreams;
 import rx.observers.TestSubscriber;
+import rx.schedulers.Schedulers;
 
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -283,6 +285,96 @@ public class InitializingReactiveSocketClientTest {
         availability = initializingReactiveSocketClient.availability();
         System.out.println(availability);
         Assert.assertTrue(1.0 == availability);
+
+    }
+
+    @Test
+    public void testWaitingForSocketToBeCreated() throws Exception {
+
+        CountDownLatch latch = new CountDownLatch(2);
+
+        ReactiveSocket reactiveSocket = Mockito.mock(ReactiveSocket.class);
+        Mockito.when(reactiveSocket.availability()).thenReturn(0.5);
+
+        Mockito.when(reactiveSocket.requestResponse(Mockito.any(Payload.class))).thenReturn(new Publisher<Payload>() {
+            @Override
+            public void subscribe(Subscriber<? super Payload> s) {
+                latch.countDown();
+                s.onNext(new Payload() {
+                    @Override
+                    public ByteBuffer getData() {
+                        return null;
+                    }
+
+                    @Override
+                    public ByteBuffer getMetadata() {
+                        return null;
+                    }
+                });
+                s.onComplete();
+            }
+        });
+
+        ReactiveSocketFactory reactiveSocketFactory = Mockito.mock(ReactiveSocketFactory.class);
+
+        SocketAddress socketAddress = InetSocketAddress.createUnresolved("localhost", 8080);
+
+        Mockito.when(reactiveSocketFactory.call(socketAddress, 10, TimeUnit.SECONDS)).thenReturn(new Publisher<ReactiveSocket>() {
+            @Override
+            public void subscribe(Subscriber<? super ReactiveSocket> s) {
+                s.onSubscribe(EmptySubscription.INSTANCE);
+                s.onNext(reactiveSocket);
+                s.onComplete();
+            }
+        });
+
+        InitializingReactiveSocketClient initializingReactiveSocketClient
+            = new InitializingReactiveSocketClient(reactiveSocketFactory, socketAddress, 10, TimeUnit.SECONDS, 10, TimeUnit.SECONDS);
+
+        initializingReactiveSocketClient.guard.tryAcquire();
+
+        double availability = initializingReactiveSocketClient.availability();
+        Assert.assertTrue(1.0 == availability);
+
+        Publisher<Payload> payloadPublisher = initializingReactiveSocketClient.requestResponse(new Payload() {
+            @Override
+            public ByteBuffer getData() {
+                return null;
+            }
+
+            @Override
+            public ByteBuffer getMetadata() {
+                return null;
+            }
+        });
+
+        RxReactiveStreams
+            .toObservable(payloadPublisher)
+            .subscribeOn(Schedulers.computation())
+            .subscribe();
+
+        Thread.sleep(250);
+
+        Assert.assertFalse(initializingReactiveSocketClient.awaitingReactiveSocket.isEmpty());
+        Assert.assertEquals(2, latch.getCount());
+
+        initializingReactiveSocketClient.guard.release();
+
+        Publisher<Payload> payloadPublisher2 = initializingReactiveSocketClient.requestResponse(new Payload() {
+            @Override
+            public ByteBuffer getData() {
+                return null;
+            }
+
+            @Override
+            public ByteBuffer getMetadata() {
+                return null;
+            }
+        });
+
+        RxReactiveStreams.toObservable(payloadPublisher2).subscribe();
+
+        latch.await(1, TimeUnit.SECONDS);
 
     }
 

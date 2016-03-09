@@ -24,15 +24,15 @@ public class InitializingReactiveSocketClient implements ReactiveSocketClient {
 
     private final long timeout;
     private final TimeUnit unit;
-    
-    private final Semaphore guard;
+
+    //Visible for testing
+    final Semaphore guard;
+    final List<Completable> awaitingReactiveSocket;
     
     private volatile  ReactiveSocket reactiveSocket;
     
     private volatile long connectionFailureTimestamp = 0;
-    
 
-    private List<Completable> awaitingReactiveSocket;
 
     public InitializingReactiveSocketClient(
         ReactiveSocketFactory reactiveSocketFactory, 
@@ -121,7 +121,6 @@ public class InitializingReactiveSocketClient implements ReactiveSocketClient {
                             @Override
                             public void onComplete() {
                                 guard.release();
-                                s.onComplete();
                                 awaitingReactiveSocket.forEach(Completable::success);
                             }
                         });
