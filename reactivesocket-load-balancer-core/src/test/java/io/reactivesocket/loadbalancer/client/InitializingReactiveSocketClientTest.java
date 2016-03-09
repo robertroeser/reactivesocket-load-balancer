@@ -213,4 +213,77 @@ public class InitializingReactiveSocketClientTest {
 
     }
 
+    @Test
+    public void testInitNewClientWithExceptionInFactoryAndThenWaitForRetryWindow() throws Exception {
+        ReactiveSocket reactiveSocket = Mockito.mock(ReactiveSocket.class);
+        Mockito.when(reactiveSocket.availability()).thenReturn(0.5);
+
+        Mockito.when(reactiveSocket.requestResponse(Mockito.any(Payload.class))).thenReturn(new Publisher<Payload>() {
+            @Override
+            public void subscribe(Subscriber<? super Payload> s) {
+                s.onNext(new Payload() {
+                    @Override
+                    public ByteBuffer getData() {
+                        return null;
+                    }
+
+                    @Override
+                    public ByteBuffer getMetadata() {
+                        return null;
+                    }
+                });
+                s.onComplete();
+            }
+        });
+
+        ReactiveSocketFactory reactiveSocketFactory = Mockito.mock(ReactiveSocketFactory.class);
+
+        SocketAddress socketAddress = InetSocketAddress.createUnresolved("localhost", 8080);
+
+        Mockito.when(reactiveSocketFactory.call(socketAddress, 10, TimeUnit.SECONDS)).thenReturn(new Publisher<ReactiveSocket>() {
+            @Override
+            public void subscribe(Subscriber<? super ReactiveSocket> s) {
+                s.onSubscribe(EmptySubscription.INSTANCE);
+                s.onError(new RuntimeException());
+                s.onComplete();
+            }
+        });
+
+        InitializingReactiveSocketClient initializingReactiveSocketClient
+            = new InitializingReactiveSocketClient(reactiveSocketFactory, socketAddress, 10, TimeUnit.SECONDS, 1, TimeUnit.SECONDS);
+
+        double availability = initializingReactiveSocketClient.availability();
+        Assert.assertTrue(1.0 == availability);
+
+        Publisher<Payload> payloadPublisher = initializingReactiveSocketClient.requestResponse(new Payload() {
+            @Override
+            public ByteBuffer getData() {
+                return null;
+            }
+
+            @Override
+            public ByteBuffer getMetadata() {
+                return null;
+            }
+        });
+
+        TestSubscriber testSubscriber = new TestSubscriber();
+        RxReactiveStreams.toObservable(payloadPublisher).doOnError(Throwable::printStackTrace).subscribe(testSubscriber);
+
+        testSubscriber.awaitTerminalEvent();
+        testSubscriber.assertError(RuntimeException.class);
+
+        Mockito.verify(reactiveSocketFactory, Mockito.times(1)).call(socketAddress, 10, TimeUnit.SECONDS);
+
+        availability = initializingReactiveSocketClient.availability();
+        System.out.println(availability);
+        Assert.assertTrue(0.0 == availability);
+
+        Thread.sleep(1_001);
+        availability = initializingReactiveSocketClient.availability();
+        System.out.println(availability);
+        Assert.assertTrue(1.0 == availability);
+
+    }
+
 }
