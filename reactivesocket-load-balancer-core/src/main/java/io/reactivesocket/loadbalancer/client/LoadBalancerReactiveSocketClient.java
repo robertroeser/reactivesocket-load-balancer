@@ -177,7 +177,11 @@ public class LoadBalancerReactiveSocketClient implements ReactiveSocketClient {
 
     @FunctionalInterface
     public interface NumberGenerator {
-        int nextInt();
+        default int nextInt() {
+            return Math.abs(generateInt());
+        }
+
+        int generateInt();
     }
 
     @Override
