@@ -115,7 +115,7 @@ public class EurekaReactiveSocketClientFactory implements ReactiveSocketClientFa
                 2,
                 TimeUnit.SECONDS,
                 TimeUnit.SECONDS.toNanos(1),
-                TimeUnit.SECONDS.toNanos(15),
+                TimeUnit.SECONDS.toNanos(5),
                 30,
                 TimeUnit.SECONDS);
         }
