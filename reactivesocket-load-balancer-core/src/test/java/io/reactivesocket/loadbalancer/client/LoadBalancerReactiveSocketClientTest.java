@@ -19,6 +19,7 @@ import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -47,6 +48,7 @@ public class LoadBalancerReactiveSocketClientTest {
                     public void subscribe(Subscriber<? super List<SocketAddress>> s) {
                         s.onSubscribe(EmptySubscription.INSTANCE);
                         s.onNext(new ArrayList<SocketAddress>());
+                        s.onComplete();
                     }
                 };
             }
@@ -109,6 +111,7 @@ public class LoadBalancerReactiveSocketClientTest {
                     public void subscribe(Subscriber<? super List<SocketAddress>> s) {
                         s.onSubscribe(EmptySubscription.INSTANCE);
                         s.onNext(new ArrayList<SocketAddress>());
+                        s.onComplete();
                     }
                 };
             }
@@ -194,6 +197,7 @@ public class LoadBalancerReactiveSocketClientTest {
                     public void subscribe(Subscriber<? super List<SocketAddress>> s) {
                         s.onSubscribe(EmptySubscription.INSTANCE);
                         s.onNext(new ArrayList<SocketAddress>());
+                        s.onComplete();
                     }
                 };
             }
@@ -303,6 +307,7 @@ public class LoadBalancerReactiveSocketClientTest {
                     public void subscribe(Subscriber<? super List<SocketAddress>> s) {
                         s.onSubscribe(EmptySubscription.INSTANCE);
                         s.onNext(new ArrayList<SocketAddress>());
+                        s.onComplete();
                     }
                 };
             }
@@ -465,6 +470,7 @@ public class LoadBalancerReactiveSocketClientTest {
                     public void subscribe(Subscriber<? super List<SocketAddress>> s) {
                         s.onSubscribe(EmptySubscription.INSTANCE);
                         s.onNext(new ArrayList<SocketAddress>());
+                        s.onComplete();
                     }
                 };
             }
@@ -511,6 +517,20 @@ public class LoadBalancerReactiveSocketClientTest {
 
     @Test
     public void testAvailibleConnectionAvailable() {
+        ClosedConnectionsProvider closedConnectionsProvider = new ClosedConnectionsProvider() {
+            @Override
+            public Publisher<List<SocketAddress>> call() {
+                return new Publisher<List<SocketAddress>>() {
+                    @Override
+                    public void subscribe(Subscriber<? super List<SocketAddress>> s) {
+                        s.onSubscribe(EmptySubscription.INSTANCE);
+                        s.onNext(new ArrayList<SocketAddress>());
+                        s.onComplete();
+                    }
+                };
+            }
+        };
+
         ReactiveSocketClient c1 = Mockito.mock(ReactiveSocketClient.class);
         Mockito.when(c1.availability()).thenReturn(1.0);
         Mockito
@@ -558,7 +578,7 @@ public class LoadBalancerReactiveSocketClientTest {
             });
 
         for (int i = 0; i < 50; i++) {
-            availibleConnections(c1, c2);
+            availibleConnections(c1, c2, closedConnectionsProvider);
         }
 
         Mockito.verify(c1, Mockito.atLeast(1)).requestResponse(Mockito.any(Payload.class));
@@ -566,7 +586,110 @@ public class LoadBalancerReactiveSocketClientTest {
     }
 
     @Test
+    public void testRemoveConnection() {
+        AtomicBoolean tripped = new AtomicBoolean();
+        ClosedConnectionsProvider closedConnectionsProvider = new ClosedConnectionsProvider() {
+            @Override
+            public Publisher<List<SocketAddress>> call() {
+                return new Publisher<List<SocketAddress>>() {
+                    @Override
+                    public void subscribe(Subscriber<? super List<SocketAddress>> s) {
+                        s.onSubscribe(EmptySubscription.INSTANCE);
+                        if (!tripped.get()) {
+                            s.onNext(new ArrayList<SocketAddress>());
+                        } else {
+                            ArrayList<SocketAddress> socketAddresses = new ArrayList<>();
+                            socketAddresses.add(InetSocketAddress.createUnresolved("localhost2", 8080));
+                            s.onNext(socketAddresses);
+                        }
+
+                        s.onComplete();
+                    }
+                };
+            }
+        };
+
+        AtomicInteger c1Count = new AtomicInteger();
+        AtomicInteger c2Count = new AtomicInteger();
+        ReactiveSocketClient c1 = Mockito.mock(ReactiveSocketClient.class);
+        Mockito.when(c1.availability()).thenReturn(0.5);
+        Mockito
+            .when(c1.requestResponse(Mockito.any(Payload.class)))
+            .thenReturn(new Publisher<Payload>() {
+                @Override
+                public void subscribe(Subscriber<? super Payload> s) {
+                    s.onSubscribe(EmptySubscription.INSTANCE);
+                    s.onNext(new Payload() {
+                        @Override
+                        public ByteBuffer getData() {
+                            return null;
+                        }
+
+                        @Override
+                        public ByteBuffer getMetadata() {
+                            return null;
+                        }
+                    });
+                    c1Count.incrementAndGet();
+                    s.onComplete();
+                }
+            });
+
+        ReactiveSocketClient c2 = Mockito.mock(ReactiveSocketClient.class);
+        Mockito.when(c2.availability()).thenReturn(1.0);
+        Mockito
+            .when(c2.requestResponse(Mockito.any(Payload.class)))
+            .thenReturn(new Publisher<Payload>() {
+                @Override
+                public void subscribe(Subscriber<? super Payload> s) {
+                    s.onSubscribe(EmptySubscription.INSTANCE);
+                    s.onNext(new Payload() {
+                        @Override
+                        public ByteBuffer getData() {
+                            return null;
+                        }
+
+                        @Override
+                        public ByteBuffer getMetadata() {
+                            return null;
+                        }
+                    });
+                    c2Count.incrementAndGet();
+                    s.onComplete();
+                }
+            });
+
+        for (int i = 0; i < 50; i++) {
+            if (i == 5) {
+                tripped.set(true);
+            }
+
+            availibleConnections(c1, c2, closedConnectionsProvider);
+        }
+
+        Mockito.verify(c1, Mockito.atLeast(1)).requestResponse(Mockito.any(Payload.class));
+        Mockito.verify(c2, Mockito.atLeast(1)).requestResponse(Mockito.any(Payload.class));
+
+        Assert.assertTrue(c1Count.get() < c2Count.get());
+
+    }
+
+    @Test
     public void testHigherAvailibleIsCalledMoreTimes() {
+        ClosedConnectionsProvider closedConnectionsProvider = new ClosedConnectionsProvider() {
+            @Override
+            public Publisher<List<SocketAddress>> call() {
+                return new Publisher<List<SocketAddress>>() {
+                    @Override
+                    public void subscribe(Subscriber<? super List<SocketAddress>> s) {
+                        s.onSubscribe(EmptySubscription.INSTANCE);
+                        s.onNext(new ArrayList<SocketAddress>());
+                        s.onComplete();
+                    }
+                };
+            }
+        };
+
         AtomicInteger c1Count = new AtomicInteger();
         AtomicInteger c2Count = new AtomicInteger();
         ReactiveSocketClient c1 = Mockito.mock(ReactiveSocketClient.class);
@@ -618,7 +741,7 @@ public class LoadBalancerReactiveSocketClientTest {
             });
 
         for (int i = 0; i < 50; i++) {
-            availibleConnections(c1, c2);
+            availibleConnections(c1, c2, closedConnectionsProvider);
         }
 
         Mockito.verify(c1, Mockito.atLeast(1)).requestResponse(Mockito.any(Payload.class));
@@ -628,7 +751,7 @@ public class LoadBalancerReactiveSocketClientTest {
 
     }
 
-    public void availibleConnections(ReactiveSocketClient c1, ReactiveSocketClient c2) {
+    public void availibleConnections(ReactiveSocketClient c1, ReactiveSocketClient c2, ClosedConnectionsProvider closedConnectionsProvider) {
 
         ReactiveSocketClient c3 = Mockito.mock(ReactiveSocketClient.class);
         Mockito.when(c3.availability()).thenReturn(1.0);
@@ -693,18 +816,7 @@ public class LoadBalancerReactiveSocketClientTest {
                     }
                 };
             }
-        }, new ClosedConnectionsProvider() {
-            @Override
-            public Publisher<List<SocketAddress>> call() {
-                return new Publisher<List<SocketAddress>>() {
-                    @Override
-                    public void subscribe(Subscriber<? super List<SocketAddress>> s) {
-                        s.onSubscribe(EmptySubscription.INSTANCE);
-                        s.onNext(new ArrayList<SocketAddress>());
-                    }
-                };
-            }
-        }, new ReactiveSocketClientFactory<SocketAddress>() {
+        }, closedConnectionsProvider, new ReactiveSocketClientFactory<SocketAddress>() {
             @Override
             public ReactiveSocketClient apply(SocketAddress socketAddress) {
                 InetSocketAddress inetSocketAddress = (InetSocketAddress) socketAddress;
