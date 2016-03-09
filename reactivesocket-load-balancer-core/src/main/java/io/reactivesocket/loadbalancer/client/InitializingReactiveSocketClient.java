@@ -2,6 +2,7 @@ package io.reactivesocket.loadbalancer.client;
 
 import io.reactivesocket.Payload;
 import io.reactivesocket.ReactiveSocket;
+import io.reactivesocket.internal.rx.EmptySubscription;
 import io.reactivesocket.loadbalancer.ReactiveSocketFactory;
 import io.reactivesocket.rx.Completable;
 import org.reactivestreams.Publisher;
@@ -17,7 +18,7 @@ import java.util.concurrent.TimeUnit;
 public class InitializingReactiveSocketClient implements ReactiveSocketClient {
     private final ReactiveSocketFactory reactiveSocketFactory;
     private final SocketAddress socketAddress;
-    
+
     private final long connectionFailureRetryWindow;
     private final TimeUnit retryWindowUnit;
 
@@ -72,7 +73,8 @@ public class InitializingReactiveSocketClient implements ReactiveSocketClient {
                 Publisher<ReactiveSocket> reactiveSocketPublisher 
                     = reactiveSocketFactory.call(socketAddress, timeout, unit);
                 
-                return s -> 
+                return s -> {
+                    s.onSubscribe(EmptySubscription.INSTANCE);
                     reactiveSocketPublisher
                         .subscribe(new Subscriber<ReactiveSocket>() {
                             @Override
@@ -123,9 +125,10 @@ public class InitializingReactiveSocketClient implements ReactiveSocketClient {
                                 awaitingReactiveSocket.forEach(Completable::success);
                             }
                         });
-                
+                };
             } else {
                 Publisher<Payload> payloadPublisher = s1 -> {
+                    s1.onSubscribe(EmptySubscription.INSTANCE);
                     Completable completable = new Completable() {
                         @Override
                         public void success() {

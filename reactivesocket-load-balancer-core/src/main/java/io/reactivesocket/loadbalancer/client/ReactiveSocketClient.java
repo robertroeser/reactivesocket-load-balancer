@@ -1,6 +1,7 @@
 package io.reactivesocket.loadbalancer.client;
 
 import io.reactivesocket.Payload;
+import io.reactivesocket.internal.rx.EmptySubscription;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
@@ -27,6 +28,7 @@ public interface ReactiveSocketClient extends AutoCloseable {
      * @param payload the payload that is being sent
      */
     default void delegateRequestResponse(Subscriber<? super Payload> subscriber, ReactiveSocketClient client, Payload payload) {
+        subscriber.onSubscribe(EmptySubscription.INSTANCE);
         client
             .requestResponse(payload)
             .subscribe(new Subscriber<Payload>() {
@@ -60,6 +62,7 @@ public interface ReactiveSocketClient extends AutoCloseable {
      * @param payload the payload that is being sent
      */
     default void delegateRequestResponse(Subscriber<? super Payload> subscriber, ReactiveSocketClient client, Payload payload, Runnable doOnComplete) {
+        subscriber.onSubscribe(EmptySubscription.INSTANCE);
         client
             .requestResponse(payload)
             .subscribe(new Subscriber<Payload>() {
@@ -94,6 +97,7 @@ public interface ReactiveSocketClient extends AutoCloseable {
      * @param payload the payload that is being sent
      */
     default void delegateRequestResponse(Subscriber<? super Payload> subscriber, ReactiveSocketClient client, Payload payload, Runnable doOnComplete, Runnable doOnError) {
+        subscriber.onSubscribe(EmptySubscription.INSTANCE);
         client
             .requestResponse(payload)
             .subscribe(new Subscriber<Payload>() {

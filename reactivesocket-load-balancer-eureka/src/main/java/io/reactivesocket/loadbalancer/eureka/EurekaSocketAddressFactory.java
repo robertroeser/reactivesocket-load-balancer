@@ -2,6 +2,7 @@ package io.reactivesocket.loadbalancer.eureka;
 
 import com.netflix.appinfo.InstanceInfo;
 import com.netflix.discovery.DiscoveryClient;
+import io.reactivesocket.internal.rx.EmptySubscription;
 import io.reactivesocket.loadbalancer.ClosedConnectionsProvider;
 import io.reactivesocket.loadbalancer.SocketAddressFactory;
 import org.reactivestreams.Publisher;
@@ -67,6 +68,7 @@ public class EurekaSocketAddressFactory implements SocketAddressFactory {
         }
 
         return (Subscriber<? super List<SocketAddress>> s) -> {
+            s.onSubscribe(EmptySubscription.INSTANCE);
             try {
                 s.onNext(pool);
                 s.onComplete();
@@ -91,11 +93,12 @@ public class EurekaSocketAddressFactory implements SocketAddressFactory {
 
     /**
      * Gets an implementation of the {@link ClosedConnectionsProvider}
-     * that can be provided to the {@link ReactiveSocketLoadBalancer} to clean up missing connections
+     * that can be provided to the {@link io.reactivesocket.loadbalancer.client.ReactiveSocketClient} to clean up missing connections
      * @return an Observable of list connections that should be closed
      */
     public ClosedConnectionsProvider getClosedConnectionProvider() {
         return () -> s -> {
+            s.onSubscribe(EmptySubscription.INSTANCE);
             if (EMPTY_LIST.isEmpty()) {
                 s.onNext(EMPTY_LIST);
             } else {

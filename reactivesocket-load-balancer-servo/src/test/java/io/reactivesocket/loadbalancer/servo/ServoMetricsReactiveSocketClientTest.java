@@ -1,6 +1,7 @@
 package io.reactivesocket.loadbalancer.servo;
 
 import io.reactivesocket.Payload;
+import io.reactivesocket.internal.rx.EmptySubscription;
 import io.reactivesocket.loadbalancer.client.ReactiveSocketClient;
 import org.junit.Assert;
 import org.junit.Test;
@@ -72,6 +73,7 @@ public class ServoMetricsReactiveSocketClientTest {
                 return new Publisher<Payload>() {
                     @Override
                     public void subscribe(Subscriber<? super Payload> s) {
+                        s.onSubscribe(EmptySubscription.INSTANCE);
                         s.onError(new RuntimeException());
                     }
                 };
@@ -115,6 +117,7 @@ public class ServoMetricsReactiveSocketClientTest {
                     e.printStackTrace();
                 }
                 return s -> {
+                    s.onSubscribe(EmptySubscription.INSTANCE);
                     s.onNext(new Payload() {
                         @Override
                         public ByteBuffer getData() {

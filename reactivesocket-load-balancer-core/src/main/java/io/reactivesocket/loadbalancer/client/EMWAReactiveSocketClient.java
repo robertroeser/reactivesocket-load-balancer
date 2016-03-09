@@ -40,12 +40,10 @@ public class EMWAReactiveSocketClient implements ReactiveSocketClient {
 
         return s ->
             child.requestResponse(payload).subscribe(new Subscriber<Payload>() {
-
                 final long start = System.nanoTime();
 
                 @Override
                 public void onSubscribe(Subscription s) {
-
                     pending += 1;
                     s.request(1);
                 }
@@ -71,7 +69,7 @@ public class EMWAReactiveSocketClient implements ReactiveSocketClient {
             });
     }
 
-    private double getWeight() {
+    private synchronized double getWeight() {
         double weight;
         observe(0.0);
         if (cost == 0.0 && pending != 0) {
@@ -83,8 +81,7 @@ public class EMWAReactiveSocketClient implements ReactiveSocketClient {
         return weight == 0.0 ? 1.0 : weight;
     }
 
-
-    private void observe(double rtt) {
+    private synchronized void observe(double rtt) {
         long t = System.nanoTime();
         long td = Math.max(t - stamp, 0L);
         double tau;
