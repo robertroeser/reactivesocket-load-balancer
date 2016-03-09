@@ -1,6 +1,7 @@
 package io.reactivesocket.loadbalancer.client;
 
 import io.reactivesocket.Payload;
+import io.reactivesocket.internal.rx.EmptySubscription;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
@@ -37,7 +38,8 @@ public class FailureAwareReactiveSocketClient implements ReactiveSocketClient {
 
     @Override
     public Publisher<Payload> requestResponse(Payload payload) {
-        return s ->
+        return s -> {
+            s.onSubscribe(EmptySubscription.INSTANCE);
             child.requestResponse(payload).subscribe(new Subscriber<Payload>() {
                 @Override
                 public void onSubscribe(Subscription s) {
@@ -61,6 +63,7 @@ public class FailureAwareReactiveSocketClient implements ReactiveSocketClient {
                     s.onComplete();
                 }
             });
+        };
     }
 
     /**

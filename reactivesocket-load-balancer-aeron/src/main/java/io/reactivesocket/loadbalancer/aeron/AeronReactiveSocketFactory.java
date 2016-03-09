@@ -4,6 +4,7 @@ import io.reactivesocket.ConnectionSetupPayload;
 import io.reactivesocket.ReactiveSocket;
 import io.reactivesocket.aeron.client.AeronClientDuplexConnection;
 import io.reactivesocket.aeron.client.AeronClientDuplexConnectionFactory;
+import io.reactivesocket.internal.rx.EmptySubscription;
 import io.reactivesocket.loadbalancer.ReactiveSocketFactory;
 import io.reactivesocket.rx.Completable;
 import org.reactivestreams.Publisher;
@@ -58,9 +59,11 @@ public class AeronReactiveSocketFactory implements ReactiveSocketFactory {
         Publisher<AeronClientDuplexConnection> aeronClientDuplexConnection
             = AeronClientDuplexConnectionFactory.getInstance().createAeronClientDuplexConnection(address);
 
-        return (Subscriber<? super ReactiveSocket> s) ->
+        return (Subscriber<? super ReactiveSocket> s) -> {
+            s.onSubscribe(EmptySubscription.INSTANCE);
             aeronClientDuplexConnection
                 .subscribe(new Subscriber<AeronClientDuplexConnection>() {
+
                     @Override
                     public void onSubscribe(Subscription s) {
                         s.request(1);
@@ -97,8 +100,10 @@ public class AeronReactiveSocketFactory implements ReactiveSocketFactory {
                     }
 
                     @Override
-                    public void onComplete() {}
+                    public void onComplete() {
+                    }
                 });
+        };
     }
 
     private static InetAddress getIPv4InetAddress() throws SocketException, UnknownHostException {

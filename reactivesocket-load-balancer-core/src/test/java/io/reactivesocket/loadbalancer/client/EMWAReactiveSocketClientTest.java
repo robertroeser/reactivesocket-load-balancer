@@ -1,6 +1,7 @@
 package io.reactivesocket.loadbalancer.client;
 
 import io.reactivesocket.Payload;
+import io.reactivesocket.internal.rx.EmptySubscription;
 import org.junit.Assert;
 import org.junit.Test;
 import org.reactivestreams.Publisher;
@@ -9,6 +10,7 @@ import rx.RxReactiveStreams;
 import rx.observers.TestSubscriber;
 
 import java.nio.ByteBuffer;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -51,72 +53,6 @@ public class EMWAReactiveSocketClientTest {
         client.pending = 1;
         availability = client.availability();
         Assert.assertTrue(1.0 > availability);
-    }
-
-    @Test
-    public void testError() {
-        AtomicInteger count = new AtomicInteger(0);
-        EMWAReactiveSocketClient client = new EMWAReactiveSocketClient(new ReactiveSocketClient() {
-            @Override
-            public Publisher<Payload> requestResponse(Payload payload) {
-                return s -> {
-                    if (count.get() < 1) {
-
-                        s.onNext(new Payload() {
-                            @Override
-                            public ByteBuffer getData() {
-                                return null;
-                            }
-
-                            @Override
-                            public ByteBuffer getMetadata() {
-                                return null;
-                            }
-                        });
-
-                        count.incrementAndGet();
-                        s.onComplete();
-                    } else {
-                        s.onError(new RuntimeException());
-                    }
-                };
-            }
-
-            @Override
-            public void close() throws Exception {
-
-            }
-        }, 2, 5);
-
-        double availability = client.availability();
-        Assert.assertTrue(1.0 == availability);
-
-        Publisher<Payload> payloadPublisher = client.requestResponse(new Payload() {
-            @Override
-            public ByteBuffer getData() {
-                return null;
-            }
-
-            @Override
-            public ByteBuffer getMetadata() {
-                return null;
-            }
-        });
-
-
-        TestSubscriber subscriber = new TestSubscriber();
-        RxReactiveStreams.toObservable(payloadPublisher).subscribe(subscriber);
-        subscriber.awaitTerminalEvent();
-        subscriber.assertCompleted();
-        double good = client.availability();
-
-        subscriber = new TestSubscriber();
-        RxReactiveStreams.toObservable(payloadPublisher).subscribe(subscriber);
-        subscriber.awaitTerminalEvent();
-        subscriber.assertError(RuntimeException.class);
-        double bad = client.availability();
-        Assert.assertTrue(good > bad);
-
     }
 
     @Test
@@ -191,6 +127,7 @@ public class EMWAReactiveSocketClientTest {
             @Override
             public Publisher<Payload> requestResponse(Payload payload) {
                 return s -> {
+                    s.onSubscribe(EmptySubscription.INSTANCE);
                     try {
                         Thread.sleep(50 + integer.getAndAdd(500));
                     } catch (Throwable t) {}
@@ -216,7 +153,7 @@ public class EMWAReactiveSocketClientTest {
             public void close() throws Exception {
 
             }
-        }, 2, 5);
+        }, TimeUnit.SECONDS.toNanos(1), TimeUnit.SECONDS.toNanos(5));
 
         Publisher<Payload> payloadPublisher = client.requestResponse(new Payload() {
             @Override
@@ -243,10 +180,7 @@ public class EMWAReactiveSocketClientTest {
             subscriber.awaitTerminalEvent();
             subscriber.assertCompleted();
             double n = client.availability();
-            System.out.println(old);
-            System.out.println(n);
-            System.out.println();
-            //Assert.assertTrue(old < n);
+            Assert.assertTrue(old > n);
             old = n;
         }
     }
