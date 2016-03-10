@@ -11,6 +11,7 @@ description = 'ReactiveSocket: stream oriented messaging passing with Reactive S
 apply plugin: 'reactivesocket-project'
 
 subprojects {
+    apply plugin: 'reactivesocket-project'
     apply plugin: 'java'
     sourceCompatibility = 1.8
 
