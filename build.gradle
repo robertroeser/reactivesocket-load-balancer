@@ -10,8 +10,6 @@ description = 'ReactiveSocket: stream oriented messaging passing with Reactive S
 
 apply plugin: 'reactivesocket-project'
 
-version = "1.0." + (System.getenv("BUILD_NUMBER") as Integer ?: 0)
-
 subprojects {
     apply plugin: 'java'
     sourceCompatibility = 1.8
