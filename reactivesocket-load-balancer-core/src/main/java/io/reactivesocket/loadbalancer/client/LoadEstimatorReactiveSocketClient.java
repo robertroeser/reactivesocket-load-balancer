@@ -138,6 +138,66 @@ public class LoadEstimatorReactiveSocketClient implements ReactiveSocketClient {
                 });
     }
 
+    @Override
+    public Publisher<Void> fireAndForget(Payload payload) {
+        return s ->
+            child.fireAndForget(payload)
+                .subscribe(new Subscriber<Void>() {
+                    Subscription subscription;
+                    @Override
+                    public void onSubscribe(Subscription s) {
+                        subscription = s;
+                        s.request(1);
+                        count.incrementAndGet();
+                    }
+
+                    @Override
+                    public void onNext(Void payload) {
+                    }
+
+                    @Override
+                    public void onError(Throwable t) {
+                        count.decrementAndGet();
+                        s.onError(t);
+                    }
+
+                    @Override
+                    public void onComplete() {
+                        count.decrementAndGet();
+                    }
+                });
+    }
+
+    @Override
+    public Publisher<Void> metadataPush(Payload payload) {
+        return s ->
+            child.metadataPush(payload)
+                .subscribe(new Subscriber<Void>() {
+                    Subscription subscription;
+                    @Override
+                    public void onSubscribe(Subscription s) {
+                        subscription = s;
+                        s.request(1);
+                        count.incrementAndGet();
+                    }
+
+                    @Override
+                    public void onNext(Void payload) {
+                    }
+
+                    @Override
+                    public void onError(Throwable t) {
+                        count.decrementAndGet();
+                        s.onError(t);
+                    }
+
+                    @Override
+                    public void onComplete() {
+                        count.decrementAndGet();
+                    }
+                });
+    }
+
     private synchronized double getWeight() {
         double weight;
         observe(0.0);

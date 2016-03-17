@@ -24,6 +24,9 @@ public interface ReactiveSocketClient extends AutoCloseable {
 
     Publisher<Payload> requestSubscription(Payload payload);
 
+    Publisher<Void> fireAndForget(Payload payload);
+
+    Publisher<Void> metadataPush(Payload payload);
 
     /**
      * Convenient way to delegate your request/response to the another ReactiveSocketClient. You call this inside a
