@@ -16,10 +16,15 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * Created by rroeser on 3/7/16.
  */
-public class EMWAReactiveSocketClientTest {
+public class LoadEstimatorReactiveSocketClientTest {
     @Test
     public void testStartupPenalty() {
-        EMWAReactiveSocketClient client = new EMWAReactiveSocketClient(new ReactiveSocketClient() {
+        LoadEstimatorReactiveSocketClient client = new LoadEstimatorReactiveSocketClient(new ReactiveSocketClient() {
+            @Override
+            public Publisher<Payload> requestSubscription(Payload payload) {
+                return null;
+            }
+
             @Override
             public Publisher<Payload> requestResponse(Payload payload) {
                 return new Publisher<Payload>() {
@@ -49,7 +54,7 @@ public class EMWAReactiveSocketClientTest {
         }, 2, 5);
 
         double availability = client.availability();
-        Assert.assertTrue(1.0 == availability);
+        Assert.assertTrue(0.5 == availability);
         client.pending = 1;
         availability = client.availability();
         Assert.assertTrue(1.0 > availability);
@@ -58,7 +63,12 @@ public class EMWAReactiveSocketClientTest {
     @Test
     public void testGoodRequest() {
         AtomicInteger integer = new AtomicInteger(2500);
-        EMWAReactiveSocketClient client = new EMWAReactiveSocketClient(new ReactiveSocketClient() {
+        LoadEstimatorReactiveSocketClient client = new LoadEstimatorReactiveSocketClient(new ReactiveSocketClient() {
+            @Override
+            public Publisher<Payload> requestSubscription(Payload payload) {
+                return null;
+            }
+
             @Override
             public Publisher<Payload> requestResponse(Payload payload) {
                 return s -> {
@@ -123,7 +133,12 @@ public class EMWAReactiveSocketClientTest {
     @Test
     public void testIncreasingSleep() {
         AtomicInteger integer = new AtomicInteger();
-        EMWAReactiveSocketClient client = new EMWAReactiveSocketClient(new ReactiveSocketClient() {
+        LoadEstimatorReactiveSocketClient client = new LoadEstimatorReactiveSocketClient(new ReactiveSocketClient() {
+            @Override
+            public Publisher<Payload> requestSubscription(Payload payload) {
+                return null;
+            }
+
             @Override
             public Publisher<Payload> requestResponse(Payload payload) {
                 return s -> {
@@ -146,6 +161,8 @@ public class EMWAReactiveSocketClientTest {
 
                     s.onComplete();
                 };
+
+
 
             }
 

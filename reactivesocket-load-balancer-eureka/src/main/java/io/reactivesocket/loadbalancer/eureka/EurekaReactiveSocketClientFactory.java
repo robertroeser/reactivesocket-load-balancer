@@ -4,7 +4,7 @@ import com.netflix.discovery.DiscoveryClient;
 import io.reactivesocket.loadbalancer.ReactiveSocketClientFactory;
 import io.reactivesocket.loadbalancer.ReactiveSocketFactory;
 import io.reactivesocket.loadbalancer.XORShiftRandom;
-import io.reactivesocket.loadbalancer.client.EMWAReactiveSocketClient;
+import io.reactivesocket.loadbalancer.client.LoadEstimatorReactiveSocketClient;
 import io.reactivesocket.loadbalancer.client.FailureAwareReactiveSocketClient;
 import io.reactivesocket.loadbalancer.client.InitializingReactiveSocketClient;
 import io.reactivesocket.loadbalancer.client.LoadBalancerReactiveSocketClient;
@@ -49,9 +49,9 @@ public class EurekaReactiveSocketClientFactory implements ReactiveSocketClientFa
                 FailureAwareReactiveSocketClient failureAwareReactiveSocketClient
                     = new FailureAwareReactiveSocketClient(initializingReactiveSocketClient, config.failureWindow, config.failureWindowUnit);
 
-                EMWAReactiveSocketClient emwaReactiveSocketClient = new EMWAReactiveSocketClient(failureAwareReactiveSocketClient, config.tauUp, config.tauDown);
+                LoadEstimatorReactiveSocketClient loadEstimatorReactiveSocketClient = new LoadEstimatorReactiveSocketClient(failureAwareReactiveSocketClient, config.tauUp, config.tauDown);
 
-                return emwaReactiveSocketClient;
+                return loadEstimatorReactiveSocketClient;
             },
             () -> XORShiftRandom.getInstance().randomInt());
 

@@ -47,8 +47,7 @@ public class LoadBalancerReactiveSocketClient implements ReactiveSocketClient {
         return 1;
     }
 
-    @Override
-    public Publisher<Payload> requestResponse(Payload payload) {
+    Publisher<Payload> loadBalance(Action action, Payload payload) {
         Publisher<Payload> payloadPublisher = s -> {
             s.onSubscribe(EmptySubscription.INSTANCE);
             socketAddressFactory
@@ -72,7 +71,7 @@ public class LoadBalancerReactiveSocketClient implements ReactiveSocketClient {
                             if (reactiveSocketClient.availability() == 0) {
                                 onError(NO_AVAILABLE_REACTIVE_SOCKET_CLIENTS_EXCEPTION);
                             } else {
-                                delegateRequestResponse(s, reactiveSocketClient, payload);
+                                action.call(s, reactiveSocketClient, payload);
                             }
                         } else if (size == 2) {
                             SocketAddress socketAddress1 = socketAddresses.get(0);
@@ -84,9 +83,9 @@ public class LoadBalancerReactiveSocketClient implements ReactiveSocketClient {
                             if (rsc1.availability() == 0 && rsc2.availability() == 0) {
                                 s.onError(NO_AVAILABLE_REACTIVE_SOCKET_CLIENTS_EXCEPTION);
                             } else if (rsc1.availability() > rsc2.availability()) {
-                                delegateRequestResponse(s, rsc1, payload);
+                                action.call(s, rsc1, payload);
                             } else {
-                                delegateRequestResponse(s, rsc2, payload);
+                                action.call(s, rsc2, payload);
                             }
                         } else {
                             ReactiveSocketClient rsc1 = null;
@@ -102,14 +101,14 @@ public class LoadBalancerReactiveSocketClient implements ReactiveSocketClient {
                                 if (rsc1.availability() == 0 && rsc2.availability() == 0) {
                                     onError(NO_AVAILABLE_REACTIVE_SOCKET_CLIENTS_EXCEPTION);
                                 } else if (rsc1.availability() > rsc2.availability()) {
-                                    delegateRequestResponse(s, rsc1, payload);
+                                    action.call(s, rsc1, payload);
                                 } else {
-                                    delegateRequestResponse(s, rsc2, payload);
+                                    action.call(s, rsc2, payload);
                                 }
                             } else if (rsc1 == null && rsc2.availability() > 0) {
-                                delegateRequestResponse(s, rsc2, payload);
+                                action.call(s, rsc2, payload);
                             } else if (rsc2 == null && rsc1.availability() > 0) {
-                                delegateRequestResponse(s, rsc1, payload);
+                                action.call(s, rsc1, payload);
                             } else if (rsc1 == null && rsc2.availability() == 0) {
                                 onError(NO_AVAILABLE_REACTIVE_SOCKET_CLIENTS_EXCEPTION);
                             } else if (rsc2 == null && rsc1.availability() == 0) {
@@ -159,9 +158,25 @@ public class LoadBalancerReactiveSocketClient implements ReactiveSocketClient {
                         });
                     }
                 });
-            };
+        };
 
         return payloadPublisher;
+    }
+
+
+    @FunctionalInterface
+    interface Action {
+        void call(Subscriber <? super Payload> subscriber, ReactiveSocketClient client, Payload payload);
+    }
+
+    @Override
+    public Publisher<Payload> requestResponse(Payload payload) {
+        return loadBalance(this::delegateRequestResponse, payload);
+    }
+
+    @Override
+    public Publisher<Payload> requestSubscription(Payload payload) {
+        return null;
     }
 
     ReactiveSocketClient getRandomReactiveSocketClient(List<SocketAddress> socketAddresses, int size) {
