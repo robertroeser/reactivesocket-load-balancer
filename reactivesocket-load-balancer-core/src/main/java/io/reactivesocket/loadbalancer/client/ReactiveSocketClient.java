@@ -20,7 +20,10 @@ public interface ReactiveSocketClient extends AutoCloseable {
 
     Publisher<Payload> requestResponse(Payload payload);
 
+    Publisher<Payload> requestStream(Payload payload);
+
     Publisher<Payload> requestSubscription(Payload payload);
+
 
     /**
      * Convenient way to delegate your request/response to the another ReactiveSocketClient. You call this inside a
@@ -54,6 +57,34 @@ public interface ReactiveSocketClient extends AutoCloseable {
                     subscriber.onComplete();
                 }
             });
+    }
+
+    default void delegateRequestSubscription(Subscriber<? super Payload> subscriber, ReactiveSocketClient client, Payload payload) {
+        subscriber.onSubscribe(EmptySubscription.INSTANCE);
+        client.requestSubscription(payload).subscribe(new Subscriber<Payload>() {
+            Subscription subscription;
+            @Override
+            public void onSubscribe(Subscription s) {
+                this.subscription = s;
+                s.request(1);
+            }
+
+            @Override
+            public void onNext(Payload payload) {
+                subscriber.onNext(payload);
+                subscription.request(1);
+            }
+
+            @Override
+            public void onError(Throwable t) {
+                subscriber.onError(t);
+            }
+
+            @Override
+            public void onComplete() {
+                subscriber.onComplete();
+            }
+        });
     }
 
     /**
@@ -126,4 +157,5 @@ public interface ReactiveSocketClient extends AutoCloseable {
                 }
             });
     }
+
 }

@@ -75,6 +75,38 @@ public class LoadEstimatorReactiveSocketClient implements ReactiveSocketClient {
     }
 
     @Override
+    public Publisher<Payload> requestStream(Payload payload) {
+        return s ->
+            child.requestStream(payload)
+                .subscribe(new Subscriber<Payload>() {
+                    Subscription subscription;
+                    @Override
+                    public void onSubscribe(Subscription s) {
+                        subscription = s;
+                        s.request(1);
+                        count.incrementAndGet();
+                    }
+
+                    @Override
+                    public void onNext(Payload payload) {
+                        s.onNext(payload);
+                        subscription.request(1);
+                    }
+
+                    @Override
+                    public void onError(Throwable t) {
+                        count.decrementAndGet();
+                        s.onError(t);
+                    }
+
+                    @Override
+                    public void onComplete() {
+                        count.decrementAndGet();
+                    }
+                });
+    }
+
+    @Override
     public Publisher<Payload> requestSubscription(Payload payload) {
         return s ->
             child.requestSubscription(payload)

@@ -26,6 +26,11 @@ public class LoadEstimatorReactiveSocketClientTest {
             }
 
             @Override
+            public Publisher<Payload> requestStream(Payload payload) {
+                return null;
+            }
+
+            @Override
             public Publisher<Payload> requestResponse(Payload payload) {
                 return new Publisher<Payload>() {
                     @Override
@@ -66,6 +71,11 @@ public class LoadEstimatorReactiveSocketClientTest {
         LoadEstimatorReactiveSocketClient client = new LoadEstimatorReactiveSocketClient(new ReactiveSocketClient() {
             @Override
             public Publisher<Payload> requestSubscription(Payload payload) {
+                return null;
+            }
+
+            @Override
+            public Publisher<Payload> requestStream(Payload payload) {
                 return null;
             }
 
@@ -136,6 +146,11 @@ public class LoadEstimatorReactiveSocketClientTest {
         LoadEstimatorReactiveSocketClient client = new LoadEstimatorReactiveSocketClient(new ReactiveSocketClient() {
             @Override
             public Publisher<Payload> requestSubscription(Payload payload) {
+                return null;
+            }
+
+            @Override
+            public Publisher<Payload> requestStream(Payload payload) {
                 return null;
             }
 

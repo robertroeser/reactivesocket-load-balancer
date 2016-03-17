@@ -101,6 +101,40 @@ public class FailureAwareReactiveSocketClient implements ReactiveSocketClient {
         };
     }
 
+
+    @Override
+    public Publisher<Payload> requestStream(Payload payload) {
+        return s -> {
+            s.onSubscribe(EmptySubscription.INSTANCE);
+            child.requestStream(payload).subscribe(new Subscriber<Payload>() {
+                Subscription subscription;
+                @Override
+                public void onSubscribe(Subscription s) {
+                    subscription = s;
+                    s.request(1);
+                }
+
+                @Override
+                public void onNext(Payload payload) {
+                    updateErrorPercentage(1.0);
+                    s.onNext(payload);
+                    subscription.request(1);
+                }
+
+                @Override
+                public void onError(Throwable t) {
+                    updateErrorPercentage(0.0);
+                    s.onError(t);
+                }
+
+                @Override
+                public void onComplete() {
+                    s.onComplete();
+                }
+            });
+        };
+    }
+
     /**
      *
      * @param value 1.0 for success, 0.0 for a failure

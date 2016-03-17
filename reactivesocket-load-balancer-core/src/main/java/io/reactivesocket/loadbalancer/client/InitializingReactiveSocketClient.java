@@ -189,6 +189,39 @@ public class InitializingReactiveSocketClient implements ReactiveSocketClient {
     }
 
     @Override
+    public Publisher<Payload> requestStream(Payload payload) {
+        if (reactiveSocket == null) {
+            return init((s, r) ->
+                r.requestStream(payload).subscribe(new Subscriber<Payload>() {
+                    Subscription subscription;
+                    @Override
+                    public void onSubscribe(Subscription s) {
+                        this.subscription = s;
+                        s.request(1);
+                    }
+
+                    @Override
+                    public void onNext(Payload payload) {
+                        s.onNext(payload);
+                        subscription.request(1);
+                    }
+
+                    @Override
+                    public void onError(Throwable t) {
+                        s.onError(t);
+                    }
+
+                    @Override
+                    public void onComplete() {
+                        s.onComplete();
+                    }
+                }));
+        } else {
+            return reactiveSocket.requestSubscription(payload);
+        }
+    }
+
+    @Override
     public void close() throws Exception {
         if (reactiveSocket != null) {
             reactiveSocket.close();
