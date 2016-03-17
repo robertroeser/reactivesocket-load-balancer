@@ -20,6 +20,11 @@ public class FailureAwareReactiveSocketClientTest {
         AtomicInteger count = new AtomicInteger(0);
         FailureAwareReactiveSocketClient client = new FailureAwareReactiveSocketClient(new ReactiveSocketClient() {
             @Override
+            public Publisher<Payload> requestSubscription(Payload payload) {
+                return null;
+            }
+
+            @Override
             public Publisher<Payload> requestResponse(Payload payload) {
                 return s -> {
                     if (count.get() < 1) {
@@ -83,6 +88,11 @@ public class FailureAwareReactiveSocketClientTest {
     public void testWidowReset() throws InterruptedException {
         AtomicInteger count = new AtomicInteger(0);
         FailureAwareReactiveSocketClient client = new FailureAwareReactiveSocketClient(new ReactiveSocketClient() {
+            @Override
+            public Publisher<Payload> requestSubscription(Payload payload) {
+                return null;
+            }
+
             @Override
             public Publisher<Payload> requestResponse(Payload payload) {
                 return s -> {
