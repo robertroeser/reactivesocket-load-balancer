@@ -6,6 +6,7 @@ import io.reactivesocket.loadbalancer.servo.internal.HdrHistogramServoTimer;
 import io.reactivesocket.loadbalancer.servo.internal.ThreadLocalAdderCounter;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
+import org.reactivestreams.Subscription;
 
 /**
  * An implementation of {@link ReactiveSocketClient} that sends metrics to Servo
@@ -39,6 +40,39 @@ public class ServoMetricsReactiveSocketClient implements ReactiveSocketClient {
                 payload,
                 () -> recordSuccess(start),
                 () -> recordFailure(start));
+    }
+
+    @Override
+    public Publisher<Payload> requestSubscription(Payload payload) {
+        long start = recordStart();
+        return s ->
+            child.requestSubscription(payload).subscribe(new Subscriber<Payload>() {
+                Subscription subscription;
+
+                @Override
+                public void onSubscribe(Subscription s) {
+                    s.request(1);
+                    subscription = s;
+                }
+
+                @Override
+                public void onNext(Payload payload) {
+                    s.onNext(payload);
+                    subscription.request(1);
+                }
+
+                @Override
+                public void onError(Throwable t) {
+                    s.onError(t);
+                    recordFailure(start);
+                }
+
+                @Override
+                public void onComplete() {
+                    s.onComplete();
+                    recordSuccess(start);
+                }
+            });
     }
 
     private long recordStart() {
