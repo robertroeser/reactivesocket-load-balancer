@@ -47,8 +47,8 @@ public class LoadBalancerReactiveSocketClient implements ReactiveSocketClient {
         return 1;
     }
 
-    Publisher<Payload> loadBalance(Action action, Payload payload) {
-        Publisher<Payload> payloadPublisher = s -> {
+    <T> Publisher<T> loadBalance(Action action, Payload payload) {
+        Publisher<T> payloadPublisher = s -> {
             s.onSubscribe(EmptySubscription.INSTANCE);
             socketAddressFactory
                 .call()
@@ -165,8 +165,8 @@ public class LoadBalancerReactiveSocketClient implements ReactiveSocketClient {
 
 
     @FunctionalInterface
-    interface Action {
-        void call(Subscriber <? super Payload> subscriber, ReactiveSocketClient client, Payload payload);
+    interface Action<T> {
+        void call(Subscriber <? super T> subscriber, ReactiveSocketClient client, Payload payload);
     }
 
     @Override
@@ -207,7 +207,6 @@ public class LoadBalancerReactiveSocketClient implements ReactiveSocketClient {
             , payload);
     }
 
-
     @Override
     public Publisher<Payload> requestStream(Payload payload) {
         return loadBalance(
@@ -226,6 +225,68 @@ public class LoadBalancerReactiveSocketClient implements ReactiveSocketClient {
                         public void onNext(Payload payload) {
                             s.onNext(payload);
                             subscription.request(1);
+                        }
+
+                        @Override
+                        public void onError(Throwable t) {
+                            s.onError(t);
+                        }
+
+                        @Override
+                        public void onComplete() {
+                            s.onComplete();
+                        }
+                    })
+            , payload);
+    }
+
+    @Override
+    public Publisher<Void> fireAndForget(Payload payload) {
+        return loadBalance(
+            (s, r, p) ->
+                r
+                    .fireAndForget(p)
+                    .subscribe(new Subscriber<Void>() {
+                        Subscription subscription;
+                        @Override
+                        public void onSubscribe(Subscription s) {
+                            s.request(1);
+                            subscription = s;
+                        }
+
+                        @Override
+                        public void onNext(Void payload) {
+                        }
+
+                        @Override
+                        public void onError(Throwable t) {
+                            s.onError(t);
+                        }
+
+                        @Override
+                        public void onComplete() {
+                            s.onComplete();
+                        }
+                    })
+            , payload);
+    }
+
+    @Override
+    public Publisher<Void> metadataPush(Payload payload) {
+        return loadBalance(
+            (s, r, p) ->
+                r
+                    .metadataPush(p)
+                    .subscribe(new Subscriber<Void>() {
+                        Subscription subscription;
+                        @Override
+                        public void onSubscribe(Subscription s) {
+                            s.request(1);
+                            subscription = s;
+                        }
+
+                        @Override
+                        public void onNext(Void payload) {
                         }
 
                         @Override

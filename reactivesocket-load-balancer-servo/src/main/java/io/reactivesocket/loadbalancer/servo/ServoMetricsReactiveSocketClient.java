@@ -75,7 +75,6 @@ public class ServoMetricsReactiveSocketClient implements ReactiveSocketClient {
             });
     }
 
-
     @Override
     public Publisher<Payload> requestSubscription(Payload payload) {
         long start = recordStart();
@@ -93,6 +92,68 @@ public class ServoMetricsReactiveSocketClient implements ReactiveSocketClient {
                 public void onNext(Payload payload) {
                     s.onNext(payload);
                     subscription.request(1);
+                }
+
+                @Override
+                public void onError(Throwable t) {
+                    s.onError(t);
+                    recordFailure(start);
+                }
+
+                @Override
+                public void onComplete() {
+                    s.onComplete();
+                    recordSuccess(start);
+                }
+            });
+    }
+
+    @Override
+    public Publisher<Void> fireAndForget(Payload payload) {
+        long start = recordStart();
+        return s ->
+            child.fireAndForget(payload).subscribe(new Subscriber<Void>() {
+                Subscription subscription;
+
+                @Override
+                public void onSubscribe(Subscription s) {
+                    s.request(1);
+                    subscription = s;
+                }
+
+                @Override
+                public void onNext(Void payload) {
+                }
+
+                @Override
+                public void onError(Throwable t) {
+                    s.onError(t);
+                    recordFailure(start);
+                }
+
+                @Override
+                public void onComplete() {
+                    s.onComplete();
+                    recordSuccess(start);
+                }
+            });
+    }
+
+    @Override
+    public Publisher<Void> metadataPush(Payload payload) {
+        long start = recordStart();
+        return s ->
+            child.metadataPush(payload).subscribe(new Subscriber<Void>() {
+                Subscription subscription;
+
+                @Override
+                public void onSubscribe(Subscription s) {
+                    s.request(1);
+                    subscription = s;
+                }
+
+                @Override
+                public void onNext(Void payload) {
                 }
 
                 @Override

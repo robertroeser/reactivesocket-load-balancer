@@ -21,6 +21,16 @@ public class LoadEstimatorReactiveSocketClientTest {
     public void testStartupPenalty() {
         LoadEstimatorReactiveSocketClient client = new LoadEstimatorReactiveSocketClient(new ReactiveSocketClient() {
             @Override
+            public Publisher<Void> metadataPush(Payload payload) {
+                return null;
+            }
+
+            @Override
+            public Publisher<Void> fireAndForget(Payload payload) {
+                return null;
+            }
+
+            @Override
             public Publisher<Payload> requestSubscription(Payload payload) {
                 return null;
             }
@@ -69,6 +79,16 @@ public class LoadEstimatorReactiveSocketClientTest {
     public void testGoodRequest() {
         AtomicInteger integer = new AtomicInteger(2500);
         LoadEstimatorReactiveSocketClient client = new LoadEstimatorReactiveSocketClient(new ReactiveSocketClient() {
+            @Override
+            public Publisher<Void> metadataPush(Payload payload) {
+                return null;
+            }
+
+            @Override
+            public Publisher<Void> fireAndForget(Payload payload) {
+                return null;
+            }
+
             @Override
             public Publisher<Payload> requestSubscription(Payload payload) {
                 return null;
@@ -144,6 +164,16 @@ public class LoadEstimatorReactiveSocketClientTest {
     public void testIncreasingSleep() {
         AtomicInteger integer = new AtomicInteger();
         LoadEstimatorReactiveSocketClient client = new LoadEstimatorReactiveSocketClient(new ReactiveSocketClient() {
+            @Override
+            public Publisher<Void> metadataPush(Payload payload) {
+                return null;
+            }
+
+            @Override
+            public Publisher<Void> fireAndForget(Payload payload) {
+                return null;
+            }
+
             @Override
             public Publisher<Payload> requestSubscription(Payload payload) {
                 return null;

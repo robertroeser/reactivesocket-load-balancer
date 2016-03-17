@@ -101,7 +101,6 @@ public class FailureAwareReactiveSocketClient implements ReactiveSocketClient {
         };
     }
 
-
     @Override
     public Publisher<Payload> requestStream(Payload payload) {
         return s -> {
@@ -129,6 +128,68 @@ public class FailureAwareReactiveSocketClient implements ReactiveSocketClient {
 
                 @Override
                 public void onComplete() {
+                    s.onComplete();
+                }
+            });
+        };
+    }
+
+    @Override
+    public Publisher<Void> fireAndForget(Payload payload) {
+        return s -> {
+            s.onSubscribe(EmptySubscription.INSTANCE);
+            child.fireAndForget(payload).subscribe(new Subscriber<Void>() {
+                Subscription subscription;
+                @Override
+                public void onSubscribe(Subscription s) {
+                    subscription = s;
+                    s.request(1);
+                }
+
+                @Override
+                public void onNext(Void payload) {
+                }
+
+                @Override
+                public void onError(Throwable t) {
+                    updateErrorPercentage(0.0);
+                    s.onError(t);
+                }
+
+                @Override
+                public void onComplete() {
+                    updateErrorPercentage(1.0);
+                    s.onComplete();
+                }
+            });
+        };
+    }
+
+    @Override
+    public Publisher<Void> metadataPush(Payload payload) {
+        return s -> {
+            s.onSubscribe(EmptySubscription.INSTANCE);
+            child.metadataPush(payload).subscribe(new Subscriber<Void>() {
+                Subscription subscription;
+                @Override
+                public void onSubscribe(Subscription s) {
+                    subscription = s;
+                    s.request(1);
+                }
+
+                @Override
+                public void onNext(Void payload) {
+                }
+
+                @Override
+                public void onError(Throwable t) {
+                    updateErrorPercentage(0.0);
+                    s.onError(t);
+                }
+
+                @Override
+                public void onComplete() {
+                    updateErrorPercentage(1.0);
                     s.onComplete();
                 }
             });

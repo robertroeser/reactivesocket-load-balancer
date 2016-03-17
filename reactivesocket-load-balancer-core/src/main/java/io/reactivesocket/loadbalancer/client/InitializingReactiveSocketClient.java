@@ -66,7 +66,7 @@ public class InitializingReactiveSocketClient implements ReactiveSocketClient {
         return availability;
     }
 
-    Publisher<Payload> init(Action action) {
+    <T> Publisher<T> init(Action action) {
         if (guard.tryAcquire()) {
             Publisher<ReactiveSocket> reactiveSocketPublisher
                 = reactiveSocketFactory.call(socketAddress, timeout, unit);
@@ -120,8 +120,8 @@ public class InitializingReactiveSocketClient implements ReactiveSocketClient {
         }
     }
 
-    interface Action {
-        void call(Subscriber<? super Payload> subscriber, ReactiveSocket reactiveSocket);
+    interface Action<T> {
+        void call(Subscriber<? super T> subscriber, ReactiveSocket reactiveSocket);
     }
 
     @Override
@@ -218,6 +218,68 @@ public class InitializingReactiveSocketClient implements ReactiveSocketClient {
                 }));
         } else {
             return reactiveSocket.requestSubscription(payload);
+        }
+    }
+
+    @Override
+    public Publisher<Void> fireAndForget(Payload payload) {
+        if (reactiveSocket == null) {
+            return init((s, r) ->
+                r.fireAndForget(payload).subscribe(new Subscriber<Void>() {
+                    Subscription subscription;
+                    @Override
+                    public void onSubscribe(Subscription s) {
+                        this.subscription = s;
+                        s.request(1);
+                    }
+
+                    @Override
+                    public void onNext(Void payload) {
+                    }
+
+                    @Override
+                    public void onError(Throwable t) {
+                        s.onError(t);
+                    }
+
+                    @Override
+                    public void onComplete() {
+                        s.onComplete();
+                    }
+                }));
+        } else {
+            return reactiveSocket.fireAndForget(payload);
+        }
+    }
+
+    @Override
+    public Publisher<Void> metadataPush(Payload payload) {
+        if (reactiveSocket == null) {
+            return init((s, r) ->
+                r.metadataPush(payload).subscribe(new Subscriber<Void>() {
+                    Subscription subscription;
+                    @Override
+                    public void onSubscribe(Subscription s) {
+                        this.subscription = s;
+                        s.request(1);
+                    }
+
+                    @Override
+                    public void onNext(Void payload) {
+                    }
+
+                    @Override
+                    public void onError(Throwable t) {
+                        s.onError(t);
+                    }
+
+                    @Override
+                    public void onComplete() {
+                        s.onComplete();
+                    }
+                }));
+        } else {
+            return reactiveSocket.fireAndForget(payload);
         }
     }
 
