@@ -21,6 +21,11 @@ public class ServoMetricsReactiveSocketClientTest {
     public void testCountSuccess() {
         ServoMetricsReactiveSocketClient client = new ServoMetricsReactiveSocketClient(new ReactiveSocketClient() {
             @Override
+            public Publisher<Payload> requestSubscription(Payload payload) {
+                return null;
+            }
+
+            @Override
             public Publisher<Payload> requestResponse(Payload payload) {
                 return s -> {
                     s.onNext(new Payload() {
@@ -69,6 +74,11 @@ public class ServoMetricsReactiveSocketClientTest {
     public void testCountFailure() {
         ServoMetricsReactiveSocketClient client = new ServoMetricsReactiveSocketClient(new ReactiveSocketClient() {
             @Override
+            public Publisher<Payload> requestSubscription(Payload payload) {
+                return null;
+            }
+
+            @Override
             public Publisher<Payload> requestResponse(Payload payload) {
                 return new Publisher<Payload>() {
                     @Override
@@ -109,6 +119,11 @@ public class ServoMetricsReactiveSocketClientTest {
     @Test
     public void testHistogram() {
         ServoMetricsReactiveSocketClient client = new ServoMetricsReactiveSocketClient(new ReactiveSocketClient() {
+            @Override
+            public Publisher<Payload> requestSubscription(Payload payload) {
+                return null;
+            }
+
             @Override
             public Publisher<Payload> requestResponse(Payload payload) {
                 try {
