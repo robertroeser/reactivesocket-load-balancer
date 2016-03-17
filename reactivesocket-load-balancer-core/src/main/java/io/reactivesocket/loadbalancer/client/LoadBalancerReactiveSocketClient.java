@@ -176,7 +176,69 @@ public class LoadBalancerReactiveSocketClient implements ReactiveSocketClient {
 
     @Override
     public Publisher<Payload> requestSubscription(Payload payload) {
-        return null;
+        return loadBalance(
+            (s, r, p) ->
+                r
+                    .requestSubscription(p)
+                    .subscribe(new Subscriber<Payload>() {
+                        Subscription subscription;
+                        @Override
+                        public void onSubscribe(Subscription s) {
+                            s.request(1);
+                            subscription = s;
+                        }
+
+                        @Override
+                        public void onNext(Payload payload) {
+                            s.onNext(payload);
+                            subscription.request(1);
+                        }
+
+                        @Override
+                        public void onError(Throwable t) {
+                            s.onError(t);
+                        }
+
+                        @Override
+                        public void onComplete() {
+                            s.onComplete();
+                        }
+                    })
+            , payload);
+    }
+
+
+    @Override
+    public Publisher<Payload> requestStream(Payload payload) {
+        return loadBalance(
+            (s, r, p) ->
+                r
+                    .requestStream(p)
+                    .subscribe(new Subscriber<Payload>() {
+                        Subscription subscription;
+                        @Override
+                        public void onSubscribe(Subscription s) {
+                            s.request(1);
+                            subscription = s;
+                        }
+
+                        @Override
+                        public void onNext(Payload payload) {
+                            s.onNext(payload);
+                            subscription.request(1);
+                        }
+
+                        @Override
+                        public void onError(Throwable t) {
+                            s.onError(t);
+                        }
+
+                        @Override
+                        public void onComplete() {
+                            s.onComplete();
+                        }
+                    })
+            , payload);
     }
 
     ReactiveSocketClient getRandomReactiveSocketClient(List<SocketAddress> socketAddresses, int size) {

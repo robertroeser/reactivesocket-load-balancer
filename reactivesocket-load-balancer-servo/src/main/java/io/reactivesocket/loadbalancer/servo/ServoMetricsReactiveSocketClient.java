@@ -43,6 +43,40 @@ public class ServoMetricsReactiveSocketClient implements ReactiveSocketClient {
     }
 
     @Override
+    public Publisher<Payload> requestStream(Payload payload) {
+        long start = recordStart();
+        return s ->
+            child.requestStream(payload).subscribe(new Subscriber<Payload>() {
+                Subscription subscription;
+
+                @Override
+                public void onSubscribe(Subscription s) {
+                    s.request(1);
+                    subscription = s;
+                }
+
+                @Override
+                public void onNext(Payload payload) {
+                    s.onNext(payload);
+                    subscription.request(1);
+                }
+
+                @Override
+                public void onError(Throwable t) {
+                    s.onError(t);
+                    recordFailure(start);
+                }
+
+                @Override
+                public void onComplete() {
+                    s.onComplete();
+                    recordSuccess(start);
+                }
+            });
+    }
+
+
+    @Override
     public Publisher<Payload> requestSubscription(Payload payload) {
         long start = recordStart();
         return s ->

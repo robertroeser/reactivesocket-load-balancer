@@ -25,6 +25,11 @@ public class FailureAwareReactiveSocketClientTest {
             }
 
             @Override
+            public Publisher<Payload> requestStream(Payload payload) {
+                return null;
+            }
+
+            @Override
             public Publisher<Payload> requestResponse(Payload payload) {
                 return s -> {
                     if (count.get() < 1) {
@@ -90,6 +95,11 @@ public class FailureAwareReactiveSocketClientTest {
         FailureAwareReactiveSocketClient client = new FailureAwareReactiveSocketClient(new ReactiveSocketClient() {
             @Override
             public Publisher<Payload> requestSubscription(Payload payload) {
+                return null;
+            }
+
+            @Override
+            public Publisher<Payload> requestStream(Payload payload) {
                 return null;
             }
 
