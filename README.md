@@ -3,11 +3,11 @@ ReactiveSocket load balancer for java
 
 ## Master Build Status
 
-<a href='https://travis-ci.org/ReactiveSocket/reactivesocket-websocket-rxnetty/builds'><img src='https://travis-ci.org/ReactiveSocket/reactivesocket-websocket-rxnetty.svg?branch=master'></a>
+<a href='https://travis-ci.org/ReactiveSocket/reactivesocket-load-balancer/builds'><img src='https://travis-ci.org/ReactiveSocket/reactivesocket-load-balancer.svg?branch=master'></a>
 
 ## Bugs and Feedback
 
-For bugs, questions and discussions please use the [Github Issues](https://github.com/ReactiveSocket/reactivesocket-websocket-rxnetty/issues).
+For bugs, questions and discussions please use the [Github Issues](https://github.com/ReactiveSocket/reactivesocket-load-balancer/issues).
 
  
 ## LICENSE
