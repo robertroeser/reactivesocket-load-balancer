@@ -66,110 +66,220 @@ public class InitializingReactiveSocketClient implements ReactiveSocketClient {
         return availability;
     }
 
+    <T> Publisher<T> init(Action action) {
+        if (guard.tryAcquire()) {
+            Publisher<ReactiveSocket> reactiveSocketPublisher
+                = reactiveSocketFactory.call(socketAddress, timeout, unit);
+
+            return s -> {
+                s.onSubscribe(EmptySubscription.INSTANCE);
+                reactiveSocketPublisher
+                    .subscribe(new Subscriber<ReactiveSocket>() {
+                        @Override
+                        public void onSubscribe(Subscription s) {
+                            s.request(1);
+                        }
+
+                        @Override
+                        public void onNext(ReactiveSocket rSocket) {
+                            action.call(s, rSocket);
+                        }
+
+                        @Override
+                        public void onError(Throwable t) {
+                            connectionFailureTimestamp = System.nanoTime();
+                            guard.release();
+                            s.onError(t);
+                            awaitingReactiveSocket.forEach(c -> c.error(t));
+                        }
+
+                        @Override
+                        public void onComplete() {
+                            guard.release();
+                            awaitingReactiveSocket.forEach(Completable::success);
+                        }
+                    });
+            };
+        } else {
+            return s -> {
+                s.onSubscribe(EmptySubscription.INSTANCE);
+                Completable completable = new Completable() {
+                    @Override
+                    public void success() {
+                        action.call(s, reactiveSocket);
+                    }
+
+                    @Override
+                    public void error(Throwable e) {
+                        s.onError(e);
+                    }
+                };
+
+                awaitingReactiveSocket.add(completable);
+            };
+        }
+    }
+
+    interface Action<T> {
+        void call(Subscriber<? super T> subscriber, ReactiveSocket reactiveSocket);
+    }
+
     @Override
     public Publisher<Payload> requestResponse(Payload payload) {
         if (reactiveSocket == null) {
-            if (guard.tryAcquire()) {
-                Publisher<ReactiveSocket> reactiveSocketPublisher
-                    = reactiveSocketFactory.call(socketAddress, timeout, unit);
+            return init((s, r) ->
+                r.requestResponse(payload).subscribe(new Subscriber<Payload>() {
+                    @Override
+                    public void onSubscribe(Subscription s) {
+                        s.request(1);
+                    }
 
-                return s -> {
-                    s.onSubscribe(EmptySubscription.INSTANCE);
-                    reactiveSocketPublisher
-                        .subscribe(new Subscriber<ReactiveSocket>() {
-                            @Override
-                            public void onSubscribe(Subscription s) {
-                                s.request(1);
-                            }
+                    @Override
+                    public void onNext(Payload payload) {
+                        s.onNext(payload);
+                    }
 
-                            @Override
-                            public void onNext(ReactiveSocket rSocket) {
-                                reactiveSocket = rSocket;
-                                reactiveSocket
-                                    .requestResponse(payload)
-                                    .subscribe(new Subscriber<Payload>() {
-                                        @Override
-                                        public void onSubscribe(Subscription s) {
-                                            s.request(1);
-                                        }
+                    @Override
+                    public void onError(Throwable t) {
+                        s.onError(t);
+                    }
 
-                                        @Override
-                                        public void onNext(Payload payload) {
-                                            s.onNext(payload);
-                                        }
-
-                                        @Override
-                                        public void onError(Throwable t) {
-                                            s.onError(t);
-                                        }
-
-                                        @Override
-                                        public void onComplete() {
-                                            s.onComplete();
-                                        }
-                                    });
-                            }
-
-                            @Override
-                            public void onError(Throwable t) {
-                                connectionFailureTimestamp = System.nanoTime();
-                                guard.release();
-                                s.onError(t);
-                                awaitingReactiveSocket.forEach(c -> c.error(t));
-                            }
-
-                            @Override
-                            public void onComplete() {
-                                guard.release();
-                                awaitingReactiveSocket.forEach(Completable::success);
-                            }
-                        });
-                };
-            } else {
-                Publisher<Payload> payloadPublisher = s1 -> {
-                    s1.onSubscribe(EmptySubscription.INSTANCE);
-                    Completable completable = new Completable() {
-                        @Override
-                        public void success() {
-                            reactiveSocket
-                                .requestResponse(payload)
-                                .subscribe(new Subscriber<Payload>() {
-                                    @Override
-                                    public void onSubscribe(Subscription s) {
-                                        s.request(1);
-                                    }
-
-                                    @Override
-                                    public void onNext(Payload payload) {
-                                        s1.onNext(payload);
-                                    }
-
-                                    @Override
-                                    public void onError(Throwable t) {
-                                        s1.onError(t);
-                                    }
-
-                                    @Override
-                                    public void onComplete() {
-                                        s1.onComplete();
-                                    }
-                                });
-                        }
-
-                        @Override
-                        public void error(Throwable e) {
-                            s1.onError(e);
-                        }
-                    };
-                    
-                    awaitingReactiveSocket.add(completable);
-                };
-                
-                return payloadPublisher;
-            }
+                    @Override
+                    public void onComplete() {
+                        s.onComplete();
+                    }
+                }));
         } else {
             return reactiveSocket
                 .requestResponse(payload);
+        }
+    }
+
+    @Override
+    public Publisher<Payload> requestSubscription(Payload payload) {
+        if (reactiveSocket == null) {
+            return init((s, r) ->
+                r.requestSubscription(payload).subscribe(new Subscriber<Payload>() {
+                    Subscription subscription;
+                    @Override
+                    public void onSubscribe(Subscription s) {
+                        this.subscription = s;
+                        s.request(1);
+                    }
+
+                    @Override
+                    public void onNext(Payload payload) {
+                        s.onNext(payload);
+                        subscription.request(1);
+                    }
+
+                    @Override
+                    public void onError(Throwable t) {
+                        s.onError(t);
+                    }
+
+                    @Override
+                    public void onComplete() {
+                        s.onComplete();
+                    }
+                }));
+        } else {
+            return reactiveSocket.requestSubscription(payload);
+        }
+    }
+
+    @Override
+    public Publisher<Payload> requestStream(Payload payload) {
+        if (reactiveSocket == null) {
+            return init((s, r) ->
+                r.requestStream(payload).subscribe(new Subscriber<Payload>() {
+                    Subscription subscription;
+                    @Override
+                    public void onSubscribe(Subscription s) {
+                        this.subscription = s;
+                        s.request(1);
+                    }
+
+                    @Override
+                    public void onNext(Payload payload) {
+                        s.onNext(payload);
+                        subscription.request(1);
+                    }
+
+                    @Override
+                    public void onError(Throwable t) {
+                        s.onError(t);
+                    }
+
+                    @Override
+                    public void onComplete() {
+                        s.onComplete();
+                    }
+                }));
+        } else {
+            return reactiveSocket.requestSubscription(payload);
+        }
+    }
+
+    @Override
+    public Publisher<Void> fireAndForget(Payload payload) {
+        if (reactiveSocket == null) {
+            return init((s, r) ->
+                r.fireAndForget(payload).subscribe(new Subscriber<Void>() {
+                    Subscription subscription;
+                    @Override
+                    public void onSubscribe(Subscription s) {
+                        this.subscription = s;
+                        s.request(1);
+                    }
+
+                    @Override
+                    public void onNext(Void payload) {
+                    }
+
+                    @Override
+                    public void onError(Throwable t) {
+                        s.onError(t);
+                    }
+
+                    @Override
+                    public void onComplete() {
+                        s.onComplete();
+                    }
+                }));
+        } else {
+            return reactiveSocket.fireAndForget(payload);
+        }
+    }
+
+    @Override
+    public Publisher<Void> metadataPush(Payload payload) {
+        if (reactiveSocket == null) {
+            return init((s, r) ->
+                r.metadataPush(payload).subscribe(new Subscriber<Void>() {
+                    Subscription subscription;
+                    @Override
+                    public void onSubscribe(Subscription s) {
+                        this.subscription = s;
+                        s.request(1);
+                    }
+
+                    @Override
+                    public void onNext(Void payload) {
+                    }
+
+                    @Override
+                    public void onError(Throwable t) {
+                        s.onError(t);
+                    }
+
+                    @Override
+                    public void onComplete() {
+                        s.onComplete();
+                    }
+                }));
+        } else {
+            return reactiveSocket.fireAndForget(payload);
         }
     }
 
@@ -179,4 +289,5 @@ public class InitializingReactiveSocketClient implements ReactiveSocketClient {
             reactiveSocket.close();
         }
     }
+
 }

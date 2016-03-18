@@ -19,6 +19,27 @@ public class FailureAwareReactiveSocketClientTest {
     public void testError() throws InterruptedException {
         AtomicInteger count = new AtomicInteger(0);
         FailureAwareReactiveSocketClient client = new FailureAwareReactiveSocketClient(new ReactiveSocketClient() {
+
+            @Override
+            public Publisher<Void> metadataPush(Payload payload) {
+                return null;
+            }
+
+            @Override
+            public Publisher<Void> fireAndForget(Payload payload) {
+                return null;
+            }
+
+            @Override
+            public Publisher<Payload> requestSubscription(Payload payload) {
+                return null;
+            }
+
+            @Override
+            public Publisher<Payload> requestStream(Payload payload) {
+                return null;
+            }
+
             @Override
             public Publisher<Payload> requestResponse(Payload payload) {
                 return s -> {
@@ -83,6 +104,26 @@ public class FailureAwareReactiveSocketClientTest {
     public void testWidowReset() throws InterruptedException {
         AtomicInteger count = new AtomicInteger(0);
         FailureAwareReactiveSocketClient client = new FailureAwareReactiveSocketClient(new ReactiveSocketClient() {
+            @Override
+            public Publisher<Void> metadataPush(Payload payload) {
+                return null;
+            }
+
+            @Override
+            public Publisher<Void> fireAndForget(Payload payload) {
+                return null;
+            }
+
+            @Override
+            public Publisher<Payload> requestSubscription(Payload payload) {
+                return null;
+            }
+
+            @Override
+            public Publisher<Payload> requestStream(Payload payload) {
+                return null;
+            }
+
             @Override
             public Publisher<Payload> requestResponse(Payload payload) {
                 return s -> {

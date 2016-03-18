@@ -86,7 +86,8 @@ public class InitializingReactiveSocketClientTest {
         Mockito.verify(reactiveSocketFactory, Mockito.times(1)).call(socketAddress, 10, TimeUnit.SECONDS);
 
         availability = initializingReactiveSocketClient.availability();
-        Assert.assertTrue(0.5 == availability);
+        System.out.println(availability);
+        Assert.assertTrue(1.0 == availability);
     }
 
     @Test
@@ -211,7 +212,7 @@ public class InitializingReactiveSocketClientTest {
 
         availability = initializingReactiveSocketClient.availability();
         System.out.println(availability);
-        Assert.assertTrue(0.5 == availability);
+        Assert.assertTrue(1.0 == availability);
 
     }
 

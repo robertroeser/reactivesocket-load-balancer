@@ -16,6 +16,8 @@ subprojects {
     sourceCompatibility = 1.8
 
     repositories {
+        jcenter()
+        maven { url 'https://dl.bintray.com/reactivesocket/ReactiveSocket' }
         maven { url 'https://oss.jfrog.org/libs-snapshot' }
     }
 
