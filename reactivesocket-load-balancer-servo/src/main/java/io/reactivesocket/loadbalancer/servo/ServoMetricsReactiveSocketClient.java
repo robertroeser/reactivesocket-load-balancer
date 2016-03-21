@@ -1,6 +1,7 @@
 package io.reactivesocket.loadbalancer.servo;
 
 import io.reactivesocket.Payload;
+import io.reactivesocket.internal.rx.EmptySubscription;
 import io.reactivesocket.loadbalancer.client.ReactiveSocketClient;
 import io.reactivesocket.loadbalancer.servo.internal.HdrHistogramServoTimer;
 import io.reactivesocket.loadbalancer.servo.internal.ThreadLocalAdderCounter;
@@ -45,7 +46,8 @@ public class ServoMetricsReactiveSocketClient implements ReactiveSocketClient {
     @Override
     public Publisher<Payload> requestStream(Payload payload) {
         long start = recordStart();
-        return s ->
+        return s -> {
+            s.onSubscribe(EmptySubscription.INSTANCE);
             child.requestStream(payload).subscribe(new Subscriber<Payload>() {
                 Subscription subscription;
 
@@ -73,12 +75,14 @@ public class ServoMetricsReactiveSocketClient implements ReactiveSocketClient {
                     recordSuccess(start);
                 }
             });
+        };
     }
 
     @Override
     public Publisher<Payload> requestSubscription(Payload payload) {
         long start = recordStart();
-        return s ->
+        return s -> {
+            s.onSubscribe(EmptySubscription.INSTANCE);
             child.requestSubscription(payload).subscribe(new Subscriber<Payload>() {
                 Subscription subscription;
 
@@ -106,12 +110,14 @@ public class ServoMetricsReactiveSocketClient implements ReactiveSocketClient {
                     recordSuccess(start);
                 }
             });
+        };
     }
 
     @Override
     public Publisher<Void> fireAndForget(Payload payload) {
         long start = recordStart();
-        return s ->
+        return s -> {
+            s.onSubscribe(EmptySubscription.INSTANCE);
             child.fireAndForget(payload).subscribe(new Subscriber<Void>() {
                 Subscription subscription;
 
@@ -137,12 +143,14 @@ public class ServoMetricsReactiveSocketClient implements ReactiveSocketClient {
                     recordSuccess(start);
                 }
             });
+        };
     }
 
     @Override
     public Publisher<Void> metadataPush(Payload payload) {
         long start = recordStart();
-        return s ->
+        return s -> {
+            s.onSubscribe(EmptySubscription.INSTANCE);
             child.metadataPush(payload).subscribe(new Subscriber<Void>() {
                 Subscription subscription;
 
@@ -168,6 +176,7 @@ public class ServoMetricsReactiveSocketClient implements ReactiveSocketClient {
                     recordSuccess(start);
                 }
             });
+        };
     }
 
     private long recordStart() {
