@@ -1,6 +1,7 @@
 package io.reactivesocket.loadbalancer.client;
 
 import io.reactivesocket.Payload;
+import io.reactivesocket.internal.rx.EmptySubscription;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
@@ -43,7 +44,8 @@ public class LoadEstimatorReactiveSocketClient implements ReactiveSocketClient {
 
     @Override
     public Publisher<Payload> requestResponse(Payload payload) {
-        return s ->
+        return s -> {
+            s.onSubscribe(EmptySubscription.INSTANCE);
             child.requestResponse(payload).subscribe(new Subscriber<Payload>() {
                 final long start = System.nanoTime();
 
@@ -72,14 +74,17 @@ public class LoadEstimatorReactiveSocketClient implements ReactiveSocketClient {
                     s.onComplete();
                 }
             });
+        };
     }
 
     @Override
     public Publisher<Payload> requestStream(Payload payload) {
-        return s ->
+        return s -> {
+            s.onSubscribe(EmptySubscription.INSTANCE);
             child.requestStream(payload)
                 .subscribe(new Subscriber<Payload>() {
                     Subscription subscription;
+
                     @Override
                     public void onSubscribe(Subscription s) {
                         subscription = s;
@@ -104,14 +109,17 @@ public class LoadEstimatorReactiveSocketClient implements ReactiveSocketClient {
                         count.decrementAndGet();
                     }
                 });
+        };
     }
 
     @Override
     public Publisher<Payload> requestSubscription(Payload payload) {
-        return s ->
+        return s -> {
+            s.onSubscribe(EmptySubscription.INSTANCE);
             child.requestSubscription(payload)
                 .subscribe(new Subscriber<Payload>() {
                     Subscription subscription;
+
                     @Override
                     public void onSubscribe(Subscription s) {
                         subscription = s;
@@ -136,14 +144,17 @@ public class LoadEstimatorReactiveSocketClient implements ReactiveSocketClient {
                         count.decrementAndGet();
                     }
                 });
+        };
     }
 
     @Override
     public Publisher<Void> fireAndForget(Payload payload) {
-        return s ->
+        return s -> {
+            s.onSubscribe(EmptySubscription.INSTANCE);
             child.fireAndForget(payload)
                 .subscribe(new Subscriber<Void>() {
                     Subscription subscription;
+
                     @Override
                     public void onSubscribe(Subscription s) {
                         subscription = s;
@@ -166,14 +177,17 @@ public class LoadEstimatorReactiveSocketClient implements ReactiveSocketClient {
                         count.decrementAndGet();
                     }
                 });
+        };
     }
 
     @Override
     public Publisher<Void> metadataPush(Payload payload) {
-        return s ->
+        return s -> {
+            s.onSubscribe(EmptySubscription.INSTANCE);
             child.metadataPush(payload)
                 .subscribe(new Subscriber<Void>() {
                     Subscription subscription;
+
                     @Override
                     public void onSubscribe(Subscription s) {
                         subscription = s;
@@ -196,6 +210,7 @@ public class LoadEstimatorReactiveSocketClient implements ReactiveSocketClient {
                         count.decrementAndGet();
                     }
                 });
+        };
     }
 
     private synchronized double getWeight() {
