@@ -171,7 +171,36 @@ public class LoadBalancerReactiveSocketClient implements ReactiveSocketClient {
 
     @Override
     public Publisher<Payload> requestResponse(Payload payload) {
-        return loadBalance(this::delegateRequestResponse, payload);
+        return loadBalance(
+            (s, r, p) ->
+                r
+                    .requestResponse(p)
+                    .subscribe(new Subscriber<Payload>() {
+                        Subscription subscription;
+                        @Override
+                        public void onSubscribe(Subscription s) {
+                            s.request(1);
+                            subscription = s;
+                        }
+
+                        @Override
+                        public void onNext(Payload payload) {
+                            s.onNext(payload);
+                        }
+
+                        @Override
+                        public void onError(Throwable t) {
+                            s.onError(t);
+                        }
+
+                        @Override
+                        public void onComplete() {
+                            s.onComplete();
+                        }
+                    })
+            , payload);
+
+        //return loadBalance(this::delegateRequestResponse, payload);
     }
 
     @Override
