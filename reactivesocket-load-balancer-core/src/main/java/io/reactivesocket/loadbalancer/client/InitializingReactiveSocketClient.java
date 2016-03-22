@@ -78,10 +78,13 @@ public class InitializingReactiveSocketClient implements ReactiveSocketClient {
                         @Override
                         public void onSubscribe(Subscription s) {
                             s.request(1);
+                            System.out.println("init onsubscribe finished");
                         }
 
                         @Override
                         public void onNext(ReactiveSocket rSocket) {
+                            reactiveSocket = rSocket;
+                            System.out.println("On next?");
                             action.call(s, rSocket);
                         }
 
@@ -132,10 +135,12 @@ public class InitializingReactiveSocketClient implements ReactiveSocketClient {
                     @Override
                     public void onSubscribe(Subscription s) {
                         s.request(1);
+                        System.out.println("initializing onsubscribe finished");
                     }
 
                     @Override
                     public void onNext(Payload payload) {
+                        System.out.println("init client on next");
                         s.onNext(payload);
                     }
 

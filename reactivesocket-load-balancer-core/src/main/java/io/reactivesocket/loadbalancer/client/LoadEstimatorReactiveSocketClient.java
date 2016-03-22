@@ -53,10 +53,12 @@ public class LoadEstimatorReactiveSocketClient implements ReactiveSocketClient {
                 public void onSubscribe(Subscription s) {
                     pending += 1;
                     s.request(1);
+                    System.out.println("load estimator onsubscribe finished");
                 }
 
                 @Override
                 public void onNext(Payload payload) {
+                    System.out.println("loadestimator on next");
                     s.onNext(payload);
                 }
 
