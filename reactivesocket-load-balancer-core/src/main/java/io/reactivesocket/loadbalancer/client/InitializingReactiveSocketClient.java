@@ -82,7 +82,6 @@ public class InitializingReactiveSocketClient implements ReactiveSocketClient {
 
                         @Override
                         public void onNext(ReactiveSocket rSocket) {
-                            reactiveSocket = rSocket;
                             action.call(s, rSocket);
                         }
 
