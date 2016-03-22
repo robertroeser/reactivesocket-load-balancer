@@ -14,6 +14,7 @@ import io.reactivesocket.loadbalancer.client.FailureAwareReactiveSocketClient;
 import io.reactivesocket.loadbalancer.client.InitializingReactiveSocketClient;
 import io.reactivesocket.loadbalancer.client.LoadBalancerReactiveSocketClient;
 import io.reactivesocket.loadbalancer.client.LoadEstimatorReactiveSocketClient;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
@@ -35,6 +36,7 @@ import java.util.function.Function;
 /**
  * Created by rroeser on 3/21/16.
  */
+@Ignore
 public class AeronReactiveSocketFactoryTest {
 
     @Test

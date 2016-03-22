@@ -60,7 +60,6 @@ public class LoadBalancerReactiveSocketClient implements ReactiveSocketClient {
 
                     @Override
                     public void onNext(List<SocketAddress> socketAddresses) {
-                        System.out.println("load balancer on next");
                         final int size = socketAddresses.size();
 
                         // No address return an exception
@@ -72,9 +71,7 @@ public class LoadBalancerReactiveSocketClient implements ReactiveSocketClient {
                             if (reactiveSocketClient.availability() == 0) {
                                 onError(NO_AVAILABLE_REACTIVE_SOCKET_CLIENTS_EXCEPTION);
                             } else {
-                                System.out.println("calling action");
                                 action.call(s, reactiveSocketClient, payload);
-                                System.out.println("called the action");
                             }
                         } else if (size == 2) {
                             SocketAddress socketAddress1 = socketAddresses.get(0);
@@ -183,13 +180,11 @@ public class LoadBalancerReactiveSocketClient implements ReactiveSocketClient {
                         @Override
                         public void onSubscribe(Subscription s) {
                             s.request(1);
-                            System.out.println("s == " + s);
                             subscription = s;
                         }
 
                         @Override
                         public void onNext(Payload payload) {
-                            System.out.println("request response on next load balancer");
                             s.onNext(payload);
                         }
 
