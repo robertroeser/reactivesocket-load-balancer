@@ -19,8 +19,6 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.NetworkInterface;
 import java.net.SocketAddress;
-import java.net.SocketException;
-import java.net.UnknownHostException;
 import java.util.Enumeration;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -36,17 +34,16 @@ public class AeronReactiveSocketFactory implements ReactiveSocketFactory {
     private final Consumer<Throwable> errorStream;
 
     public AeronReactiveSocketFactory(ConnectionSetupPayload connectionSetupPayload, Consumer<Throwable> errorStream) {
-        this(39790, connectionSetupPayload, errorStream);
+        this(getIPv4InetAddress().getHostAddress(), 39790, connectionSetupPayload, errorStream);
     }
 
-    public AeronReactiveSocketFactory(int port, ConnectionSetupPayload connectionSetupPayload, Consumer<Throwable> errorStream) {
+    public AeronReactiveSocketFactory(String host, int port, ConnectionSetupPayload connectionSetupPayload, Consumer<Throwable> errorStream) {
         this.connectionSetupPayload = connectionSetupPayload;
         this.errorStream = errorStream;
 
         try {
-            InetAddress iPv4InetAddress = getIPv4InetAddress();
-            InetSocketAddress inetSocketAddress = new InetSocketAddress(iPv4InetAddress, port);
-            logger.info("Listen to ReactiveSocket Aeron response on host {} port {}", iPv4InetAddress.getHostAddress(), port);
+            InetSocketAddress inetSocketAddress = new InetSocketAddress(host, port);
+            logger.info("Listen to ReactiveSocket Aeron response on host {} port {}", host, port);
             AeronClientDuplexConnectionFactory.getInstance().addSocketAddressToHandleResponses(inetSocketAddress);
         } catch (Exception e) {
             logger.error(e.getMessage(), e);
@@ -77,6 +74,7 @@ public class AeronReactiveSocketFactory implements ReactiveSocketFactory {
                             @Override
                             public void success() {
                                 latch.countDown();
+                                s.onNext(reactiveSocket);
                                 s.onComplete();
                             }
 
@@ -106,22 +104,28 @@ public class AeronReactiveSocketFactory implements ReactiveSocketFactory {
         };
     }
 
-    private static InetAddress getIPv4InetAddress() throws SocketException, UnknownHostException {
-        String os = System.getProperty("os.name").toLowerCase();
+    private static InetAddress getIPv4InetAddress() {
+        InetAddress iaddress = null;
+        try {
+            String os = System.getProperty("os.name").toLowerCase();
 
-        if (os.contains("nix") || os.contains("nux")) {
-            NetworkInterface ni = NetworkInterface.getByName("eth0");
+            if (os.contains("nix") || os.contains("nux")) {
+                NetworkInterface ni = NetworkInterface.getByName("eth0");
 
-            Enumeration<InetAddress> ias = ni.getInetAddresses();
+                Enumeration<InetAddress> ias = ni.getInetAddresses();
 
-            InetAddress iaddress;
-            do {
-                iaddress = ias.nextElement();
-            } while (!(iaddress instanceof Inet4Address));
+                do {
+                    iaddress = ias.nextElement();
+                } while (!(iaddress instanceof Inet4Address));
 
-            return iaddress;
+            }
+
+            iaddress = InetAddress.getLocalHost();  // for Windows and OS X it should work well
+        } catch (Exception e) {
+            logger.error(e.getMessage(), e);
+            LangUtil.rethrowUnchecked(e);
         }
 
-        return InetAddress.getLocalHost();  // for Windows and OS X it should work well
+        return iaddress;
     }
 }

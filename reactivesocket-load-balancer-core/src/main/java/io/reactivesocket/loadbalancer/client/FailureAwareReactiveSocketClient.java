@@ -46,10 +46,12 @@ public class FailureAwareReactiveSocketClient implements ReactiveSocketClient {
                 public void onSubscribe(Subscription s) {
                     subscription = s;
                     s.request(1);
+                    System.out.println("failure aware onsubscribe finished");
                 }
 
                 @Override
                 public void onNext(Payload payload) {
+                    System.out.println("failure on next");
                     updateErrorPercentage(1.0);
                     s.onNext(payload);
                 }
