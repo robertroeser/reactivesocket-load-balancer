@@ -49,18 +49,13 @@ public class EurekaReactiveSocketClientFactory implements ReactiveSocketClientFa
                 FailureAwareReactiveSocketClient failureAwareReactiveSocketClient
                     = new FailureAwareReactiveSocketClient(initializingReactiveSocketClient, config.failureWindow, config.failureWindowUnit);
 
-                LoadEstimatorReactiveSocketClient loadEstimatorReactiveSocketClient = new LoadEstimatorReactiveSocketClient(failureAwareReactiveSocketClient, config.tauUp, config.tauDown);
-
-                return loadEstimatorReactiveSocketClient;
+                return new LoadEstimatorReactiveSocketClient(failureAwareReactiveSocketClient, config.tauUp, config.tauDown);
             },
             () -> XORShiftRandom.getInstance().randomInt());
 
-
-        ServoMetricsReactiveSocketClient servoMetricsReactiveSocketClient = new ServoMetricsReactiveSocketClient(loadBalancerReactiveSocketClient, config.vip);
-
-        return servoMetricsReactiveSocketClient;
+        return new ServoMetricsReactiveSocketClient(loadBalancerReactiveSocketClient, config.vip);
     }
-    
+
     public static class EurekaReactiveSocketClientFactoryConfig {
         boolean secure;
         int poolsize;
