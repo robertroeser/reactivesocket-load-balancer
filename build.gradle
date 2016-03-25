@@ -3,7 +3,7 @@ buildscript {
         jcenter()
     }
 
-    dependencies { classpath 'io.reactivesocket:gradle-nebula-plugin-reactivesocket:1.0.3' }
+    dependencies { classpath 'io.reactivesocket:gradle-nebula-plugin-reactivesocket:1.0.4' }
 }
 
 description = 'ReactiveSocket: stream oriented messaging passing with Reactive Stream semantics.'
@@ -27,15 +27,14 @@ subprojects {
         testCompile 'io.reactivex:rxjava:1.1.2'
         testCompile 'io.reactivex:rxjava-reactive-streams:1.0.1'
     }
-
-    // support for snapshot/final releases via versioned branch names like 1.x
-    nebulaRelease {
-        addReleaseBranchPattern(/\d+\.\d+\.\d+/)
-        addReleaseBranchPattern('HEAD')
-    }
-
-    if (project.hasProperty('release.useLastTag')) {
-        tasks.prepare.enabled = false
-    }
 }
 
+// support for snapshot/final releases via versioned branch names like 1.x
+nebulaRelease {
+    addReleaseBranchPattern(/\d+\.\d+\.\d+/)
+    addReleaseBranchPattern('HEAD')
+}
+
+if (project.hasProperty('release.useLastTag')) {
+    tasks.prepare.enabled = false
+}
