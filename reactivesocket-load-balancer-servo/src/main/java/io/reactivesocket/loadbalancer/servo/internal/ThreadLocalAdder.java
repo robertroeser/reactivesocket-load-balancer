@@ -1,6 +1,6 @@
 package io.reactivesocket.loadbalancer.servo.internal;
 
-import uk.co.real_logic.agrona.UnsafeAccess;
+import org.agrona.UnsafeAccess;
 
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLong;

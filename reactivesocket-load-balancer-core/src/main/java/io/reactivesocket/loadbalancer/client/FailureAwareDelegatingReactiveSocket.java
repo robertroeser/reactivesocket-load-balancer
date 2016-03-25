@@ -1,78 +1,68 @@
-package io.reactivesocket.loadbalancer.servo;
+package io.reactivesocket.loadbalancer.client;
 
 import io.reactivesocket.Payload;
 import io.reactivesocket.internal.rx.EmptySubscription;
-import io.reactivesocket.loadbalancer.client.ReactiveSocketClient;
-import io.reactivesocket.loadbalancer.servo.internal.HdrHistogramServoTimer;
-import io.reactivesocket.loadbalancer.servo.internal.ThreadLocalAdderCounter;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
 
+import java.util.concurrent.TimeUnit;
+
 /**
- * An implementation of {@link ReactiveSocketClient} that sends metrics to Servo
+ * ReactiveSocketClient that keeps track of successes and failures and uses them to compute availability.
  */
-public class ServoMetricsReactiveSocketClient implements ReactiveSocketClient {
-    private final ReactiveSocketClient child;
+public class FailureAwareDelegatingReactiveSocket implements DelegatingReactiveSocket {
+    private final DelegatingReactiveSocket child;
+    private final long epoch = System.nanoTime();
+    private final double tau;
 
-    private final String prefix;
+    private long stamp = epoch;
+    private volatile double ewmaErrorPercentage = 1.0; // 1.0 = 100% success, 0.0 = 0% successes
 
-    final ThreadLocalAdderCounter success;
-
-    final ThreadLocalAdderCounter failure;
-
-    final HdrHistogramServoTimer timer;
-
-    public ServoMetricsReactiveSocketClient(ReactiveSocketClient child, String prefix) {
+    public FailureAwareDelegatingReactiveSocket(DelegatingReactiveSocket child, long window, TimeUnit unit) {
         this.child = child;
-        this.prefix = prefix;
+        this.tau = unit.toNanos(window);
+    }
 
-        this.success = ThreadLocalAdderCounter.newThreadLocalAdderCounter(prefix + "_success");
-        this.failure = ThreadLocalAdderCounter.newThreadLocalAdderCounter(prefix + "_failure");
-        this.timer = HdrHistogramServoTimer.newInstance(prefix + "_timer");
+    @Override
+    public double availability() {
+        double childAvailability = child.availability();
+
+        // If the window is expired set success and failure to zero and return the child availability
+        if ((System.nanoTime() - stamp) > tau) {
+            updateErrorPercentage(1.0);
+        }
+
+        return childAvailability * ewmaErrorPercentage;
     }
 
     @Override
     public Publisher<Payload> requestResponse(Payload payload) {
-        long start = recordStart();
-        return (Subscriber<? super Payload> s) ->
-            delegateRequestResponse(s,
-                child,
-                payload,
-                () -> recordSuccess(start),
-                () -> recordFailure(start));
-    }
-
-    @Override
-    public Publisher<Payload> requestStream(Payload payload) {
-        long start = recordStart();
         return s -> {
             s.onSubscribe(EmptySubscription.INSTANCE);
-            child.requestStream(payload).subscribe(new Subscriber<Payload>() {
+            child.requestResponse(payload).subscribe(new Subscriber<Payload>() {
                 Subscription subscription;
-
                 @Override
                 public void onSubscribe(Subscription s) {
-                    s.request(1);
                     subscription = s;
+                    s.request(1);
                 }
 
                 @Override
                 public void onNext(Payload payload) {
+                    updateErrorPercentage(1.0);
                     s.onNext(payload);
-                    subscription.request(1);
                 }
 
                 @Override
                 public void onError(Throwable t) {
+                    updateErrorPercentage(0.0);
                     s.onError(t);
-                    recordFailure(start);
                 }
 
                 @Override
                 public void onComplete() {
                     s.onComplete();
-                    recordSuccess(start);
                 }
             });
         };
@@ -80,34 +70,65 @@ public class ServoMetricsReactiveSocketClient implements ReactiveSocketClient {
 
     @Override
     public Publisher<Payload> requestSubscription(Payload payload) {
-        long start = recordStart();
         return s -> {
             s.onSubscribe(EmptySubscription.INSTANCE);
             child.requestSubscription(payload).subscribe(new Subscriber<Payload>() {
                 Subscription subscription;
-
                 @Override
                 public void onSubscribe(Subscription s) {
-                    s.request(1);
                     subscription = s;
+                    s.request(1);
                 }
 
                 @Override
                 public void onNext(Payload payload) {
+                    updateErrorPercentage(1.0);
                     s.onNext(payload);
                     subscription.request(1);
                 }
 
                 @Override
                 public void onError(Throwable t) {
+                    updateErrorPercentage(0.0);
                     s.onError(t);
-                    recordFailure(start);
                 }
 
                 @Override
                 public void onComplete() {
                     s.onComplete();
-                    recordSuccess(start);
+                }
+            });
+        };
+    }
+
+    @Override
+    public Publisher<Payload> requestStream(Payload payload) {
+        return s -> {
+            s.onSubscribe(EmptySubscription.INSTANCE);
+            child.requestStream(payload).subscribe(new Subscriber<Payload>() {
+                Subscription subscription;
+                @Override
+                public void onSubscribe(Subscription s) {
+                    subscription = s;
+                    s.request(1);
+                }
+
+                @Override
+                public void onNext(Payload payload) {
+                    updateErrorPercentage(1.0);
+                    s.onNext(payload);
+                    subscription.request(1);
+                }
+
+                @Override
+                public void onError(Throwable t) {
+                    updateErrorPercentage(0.0);
+                    s.onError(t);
+                }
+
+                @Override
+                public void onComplete() {
+                    s.onComplete();
                 }
             });
         };
@@ -115,16 +136,14 @@ public class ServoMetricsReactiveSocketClient implements ReactiveSocketClient {
 
     @Override
     public Publisher<Void> fireAndForget(Payload payload) {
-        long start = recordStart();
         return s -> {
             s.onSubscribe(EmptySubscription.INSTANCE);
             child.fireAndForget(payload).subscribe(new Subscriber<Void>() {
                 Subscription subscription;
-
                 @Override
                 public void onSubscribe(Subscription s) {
-                    s.request(1);
                     subscription = s;
+                    s.request(1);
                 }
 
                 @Override
@@ -133,14 +152,14 @@ public class ServoMetricsReactiveSocketClient implements ReactiveSocketClient {
 
                 @Override
                 public void onError(Throwable t) {
+                    updateErrorPercentage(0.0);
                     s.onError(t);
-                    recordFailure(start);
                 }
 
                 @Override
                 public void onComplete() {
+                    updateErrorPercentage(1.0);
                     s.onComplete();
-                    recordSuccess(start);
                 }
             });
         };
@@ -148,16 +167,14 @@ public class ServoMetricsReactiveSocketClient implements ReactiveSocketClient {
 
     @Override
     public Publisher<Void> metadataPush(Payload payload) {
-        long start = recordStart();
         return s -> {
             s.onSubscribe(EmptySubscription.INSTANCE);
             child.metadataPush(payload).subscribe(new Subscriber<Void>() {
                 Subscription subscription;
-
                 @Override
                 public void onSubscribe(Subscription s) {
-                    s.request(1);
                     subscription = s;
+                    s.request(1);
                 }
 
                 @Override
@@ -166,31 +183,36 @@ public class ServoMetricsReactiveSocketClient implements ReactiveSocketClient {
 
                 @Override
                 public void onError(Throwable t) {
+                    updateErrorPercentage(0.0);
                     s.onError(t);
-                    recordFailure(start);
                 }
 
                 @Override
                 public void onComplete() {
+                    updateErrorPercentage(1.0);
                     s.onComplete();
-                    recordSuccess(start);
                 }
             });
         };
     }
 
-    private long recordStart() {
-        return System.nanoTime();
+    @Override
+    public Publisher<Payload> requestChannel(Publisher<Payload> payloads) {
+        throw new UnsupportedOperationException();
     }
 
-    private void recordFailure(long start) {
-        failure.increment();
-        timer.record(System.nanoTime() - start);
-    }
-
-    private void recordSuccess(long start) {
-        success.increment();
-        timer.record(System.nanoTime() - start);
+    /**
+     *
+     * @param value 1.0 for success, 0.0 for a failure
+     */
+    private void updateErrorPercentage(double value) {
+        long t = System.nanoTime();
+        long td = Math.max(t - stamp, 0L);
+        double w = Math.exp(-td / tau);
+        synchronized(this) {
+            ewmaErrorPercentage = ewmaErrorPercentage * w + value * (1.0 - w);
+        }
+        stamp = t;
     }
 
     @Override

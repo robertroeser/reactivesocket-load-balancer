@@ -1,9 +1,10 @@
 package io.reactivesocket.loadbalancer.client;
 
 import io.reactivesocket.Payload;
+import io.reactivesocket.ReactiveSocket;
+import io.reactivesocket.ReactiveSocketFactory;
 import io.reactivesocket.internal.rx.EmptySubscription;
 import io.reactivesocket.loadbalancer.ClosedConnectionsProvider;
-import io.reactivesocket.loadbalancer.ReactiveSocketClientFactory;
 import io.reactivesocket.loadbalancer.SocketAddressFactory;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
@@ -15,26 +16,26 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * An implementation of {@link ReactiveSocketClient} will load balance across a pool of childern reactive sockets clients.
+ * An implementation of {@link DelegatingReactiveSocket} will load balance across a pool of childern reactive sockets clients.
  * It uses power of two choice to select the client. This client is "always" available.
  */
-public class LoadBalancerReactiveSocketClient implements ReactiveSocketClient {
+public class LoadBalancerDelegatingReactiveSocket implements DelegatingReactiveSocket {
     private final SocketAddressFactory socketAddressFactory;
 
     private final ClosedConnectionsProvider closedConnectionsProvider;
 
-    private final Map<SocketAddress, ReactiveSocketClient> clientMap;
+    private final Map<SocketAddress, DelegatingReactiveSocket> clientMap;
 
-    private final ReactiveSocketClientFactory<SocketAddress> reactiveSocketClientFactory;
+    private final ReactiveSocketFactory<SocketAddress, DelegatingReactiveSocket> reactiveSocketClientFactory;
 
     private final NumberGenerator numberGenerator;
 
     private static final NoAvailableReactiveSocketClientsException NO_AVAILABLE_REACTIVE_SOCKET_CLIENTS_EXCEPTION = new NoAvailableReactiveSocketClientsException();
 
-    public LoadBalancerReactiveSocketClient(SocketAddressFactory socketAddressFactory,
-                                            ClosedConnectionsProvider closedConnectionsProvider,
-                                            ReactiveSocketClientFactory<SocketAddress> reactiveSocketClientFactory,
-                                            NumberGenerator numberGenerator) {
+    public LoadBalancerDelegatingReactiveSocket(SocketAddressFactory socketAddressFactory,
+                                                ClosedConnectionsProvider closedConnectionsProvider,
+                                                ReactiveSocketFactory<SocketAddress, DelegatingReactiveSocket> reactiveSocketClientFactory,
+                                                NumberGenerator numberGenerator) {
         this.socketAddressFactory = socketAddressFactory;
         this.closedConnectionsProvider = closedConnectionsProvider;
         this.clientMap = new ConcurrentHashMap<>();
@@ -66,19 +67,19 @@ public class LoadBalancerReactiveSocketClient implements ReactiveSocketClient {
                         if (size == 0) {
                             onError(NO_AVAILABLE_REACTIVE_SOCKET_CLIENTS_EXCEPTION);
                         } else if (size == 1) {
-                            ReactiveSocketClient reactiveSocketClient = getReactiveSocketClient(socketAddresses.get(0));
+                            DelegatingReactiveSocket delegatingReactiveSocket = getReactiveSocketClient(socketAddresses.get(0));
                             // If the one connection isn't available return an exception
-                            if (reactiveSocketClient.availability() == 0) {
+                            if (delegatingReactiveSocket.availability() == 0) {
                                 onError(NO_AVAILABLE_REACTIVE_SOCKET_CLIENTS_EXCEPTION);
                             } else {
-                                action.call(s, reactiveSocketClient, payload);
+                                action.call(s, delegatingReactiveSocket, payload);
                             }
                         } else if (size == 2) {
                             SocketAddress socketAddress1 = socketAddresses.get(0);
                             SocketAddress socketAddress2 = socketAddresses.get(1);
 
-                            ReactiveSocketClient rsc1 = getReactiveSocketClient(socketAddress1);
-                            ReactiveSocketClient rsc2 = getReactiveSocketClient(socketAddress2);
+                            DelegatingReactiveSocket rsc1 = getReactiveSocketClient(socketAddress1);
+                            DelegatingReactiveSocket rsc2 = getReactiveSocketClient(socketAddress2);
 
                             if (rsc1.availability() == 0 && rsc2.availability() == 0) {
                                 s.onError(NO_AVAILABLE_REACTIVE_SOCKET_CLIENTS_EXCEPTION);
@@ -88,8 +89,8 @@ public class LoadBalancerReactiveSocketClient implements ReactiveSocketClient {
                                 action.call(s, rsc2, payload);
                             }
                         } else {
-                            ReactiveSocketClient rsc1 = null;
-                            ReactiveSocketClient rsc2 = null;
+                            DelegatingReactiveSocket rsc1 = null;
+                            DelegatingReactiveSocket rsc2 = null;
                             for (int i = 0; i < 5; i++) {
                                 if (rsc1 == null) rsc1 = getRandomReactiveSocketClient(socketAddresses, size);
                                 if (rsc2 == null) rsc2 = getRandomReactiveSocketClient(socketAddresses, size);
@@ -136,7 +137,7 @@ public class LoadBalancerReactiveSocketClient implements ReactiveSocketClient {
                             public void onNext(List<SocketAddress> socketAddresses) {
                                 socketAddresses.forEach(socketAddress -> {
                                     try {
-                                        ReactiveSocketClient removed = clientMap.remove(socketAddress);
+                                        ReactiveSocket removed = clientMap.remove(socketAddress);
                                         if (removed != null) {
                                             removed.close();
                                         }
@@ -166,7 +167,7 @@ public class LoadBalancerReactiveSocketClient implements ReactiveSocketClient {
 
     @FunctionalInterface
     interface Action<T> {
-        void call(Subscriber <? super T> subscriber, ReactiveSocketClient client, Payload payload);
+        void call(Subscriber <? super T> subscriber, DelegatingReactiveSocket client, Payload payload);
     }
 
     @Override
@@ -331,15 +332,20 @@ public class LoadBalancerReactiveSocketClient implements ReactiveSocketClient {
             , payload);
     }
 
-    ReactiveSocketClient getRandomReactiveSocketClient(List<SocketAddress> socketAddresses, int size) {
-        SocketAddress socketAddress = socketAddresses.get(numberGenerator.nextInt() % size);
-        ReactiveSocketClient reactiveSocketClient = getReactiveSocketClient(socketAddress);
-
-        return reactiveSocketClient;
+    @Override
+    public Publisher<Payload> requestChannel(Publisher<Payload> payloads) {
+        return null;
     }
 
-    ReactiveSocketClient getReactiveSocketClient(SocketAddress socketAddress) {
-        return clientMap.computeIfAbsent(socketAddress, reactiveSocketClientFactory::apply);
+    DelegatingReactiveSocket getRandomReactiveSocketClient(List<SocketAddress> socketAddresses, int size) {
+        SocketAddress socketAddress = socketAddresses.get(numberGenerator.nextInt() % size);
+        DelegatingReactiveSocket delegatingReactiveSocket = getReactiveSocketClient(socketAddress);
+
+        return delegatingReactiveSocket;
+    }
+
+    DelegatingReactiveSocket getReactiveSocketClient(SocketAddress socketAddress) {
+        return clientMap.computeIfAbsent(socketAddress, reactiveSocketClientFactory::callAndWait);
     }
 
     @FunctionalInterface

@@ -2,8 +2,8 @@ package io.reactivesocket.loadbalancer.client;
 
 import io.reactivesocket.Payload;
 import io.reactivesocket.ReactiveSocket;
+import io.reactivesocket.ReactiveSocketFactory;
 import io.reactivesocket.internal.rx.EmptySubscription;
-import io.reactivesocket.loadbalancer.ReactiveSocketFactory;
 import org.junit.Assert;
 import org.junit.Test;
 import org.mockito.Mockito;
@@ -17,12 +17,14 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 /**
  * Created by rroeser on 3/8/16.
  */
-public class InitializingReactiveSocketClientTest {
+public class InitializingDelegatingReactiveSocketTest {
+
     @Test
     public void testInitNewSocketClient() {
         ReactiveSocket reactiveSocket = Mockito.mock(ReactiveSocket.class);
@@ -50,7 +52,7 @@ public class InitializingReactiveSocketClientTest {
 
         SocketAddress socketAddress = InetSocketAddress.createUnresolved("localhost", 8080);
 
-        Mockito.when(reactiveSocketFactory.call(socketAddress, 10, TimeUnit.SECONDS)).thenReturn(new Publisher<ReactiveSocket>() {
+        Mockito.when(reactiveSocketFactory.call(Mockito.any(SocketAddress.class), Mockito.anyInt(), Mockito.any(TimeUnit.class), Mockito.any(ScheduledExecutorService.class))).thenReturn(new Publisher<ReactiveSocket>() {
             @Override
             public void subscribe(Subscriber<? super ReactiveSocket> s) {
                 s.onSubscribe(EmptySubscription.INSTANCE);
@@ -59,8 +61,8 @@ public class InitializingReactiveSocketClientTest {
             }
         });
 
-        InitializingReactiveSocketClient initializingReactiveSocketClient
-            = new InitializingReactiveSocketClient(reactiveSocketFactory, socketAddress, 10, TimeUnit.SECONDS, 10, TimeUnit.SECONDS);
+        InitializingDelegatingReactiveSocket initializingReactiveSocketClient
+            = new InitializingDelegatingReactiveSocket(reactiveSocketFactory, socketAddress, 10, TimeUnit.SECONDS, 10, TimeUnit.SECONDS);
 
         double availability = initializingReactiveSocketClient.availability();
         Assert.assertTrue(1.0 == availability);
@@ -83,7 +85,7 @@ public class InitializingReactiveSocketClientTest {
         testSubscriber.awaitTerminalEvent();
         testSubscriber.assertCompleted();
 
-        Mockito.verify(reactiveSocketFactory, Mockito.times(1)).call(socketAddress, 10, TimeUnit.SECONDS);
+        Mockito.verify(reactiveSocketFactory, Mockito.times(1)).call(Mockito.any(SocketAddress.class), Mockito.anyInt(), Mockito.any(TimeUnit.class), Mockito.any(ScheduledExecutorService.class));
 
         availability = initializingReactiveSocketClient.availability();
         System.out.println(availability);
@@ -117,7 +119,7 @@ public class InitializingReactiveSocketClientTest {
 
         SocketAddress socketAddress = InetSocketAddress.createUnresolved("localhost", 8080);
 
-        Mockito.when(reactiveSocketFactory.call(socketAddress, 10, TimeUnit.SECONDS)).thenReturn(new Publisher<ReactiveSocket>() {
+        Mockito.when(reactiveSocketFactory.call(Mockito.any(SocketAddress.class), Mockito.anyInt(), Mockito.any(TimeUnit.class), Mockito.any(ScheduledExecutorService.class))).thenReturn(new Publisher<ReactiveSocket>() {
             @Override
             public void subscribe(Subscriber<? super ReactiveSocket> s) {
                 s.onSubscribe(EmptySubscription.INSTANCE);
@@ -126,8 +128,8 @@ public class InitializingReactiveSocketClientTest {
             }
         });
 
-        InitializingReactiveSocketClient initializingReactiveSocketClient
-            = new InitializingReactiveSocketClient(reactiveSocketFactory, socketAddress, 10, TimeUnit.SECONDS, 10, TimeUnit.SECONDS);
+        InitializingDelegatingReactiveSocket initializingReactiveSocketClient
+            = new InitializingDelegatingReactiveSocket(reactiveSocketFactory, socketAddress, 10, TimeUnit.SECONDS, 10, TimeUnit.SECONDS);
 
         double availability = initializingReactiveSocketClient.availability();
         Assert.assertTrue(1.0 == availability);
@@ -150,7 +152,7 @@ public class InitializingReactiveSocketClientTest {
         testSubscriber.awaitTerminalEvent();
         testSubscriber.assertError(RuntimeException.class);
 
-        Mockito.verify(reactiveSocketFactory, Mockito.times(1)).call(socketAddress, 10, TimeUnit.SECONDS);
+        Mockito.verify(reactiveSocketFactory, Mockito.times(1)).call(Mockito.any(SocketAddress.class), Mockito.anyInt(), Mockito.any(TimeUnit.class), Mockito.any(ScheduledExecutorService.class));
 
         availability = initializingReactiveSocketClient.availability();
         System.out.println(availability);
@@ -175,7 +177,7 @@ public class InitializingReactiveSocketClientTest {
 
         SocketAddress socketAddress = InetSocketAddress.createUnresolved("localhost", 8080);
 
-        Mockito.when(reactiveSocketFactory.call(socketAddress, 10, TimeUnit.SECONDS)).thenReturn(new Publisher<ReactiveSocket>() {
+        Mockito.when(reactiveSocketFactory.call(Mockito.any(SocketAddress.class), Mockito.anyInt(), Mockito.any(TimeUnit.class), Mockito.any(ScheduledExecutorService.class))).thenReturn(new Publisher<ReactiveSocket>() {
             @Override
             public void subscribe(Subscriber<? super ReactiveSocket> s) {
                 s.onSubscribe(EmptySubscription.INSTANCE);
@@ -184,8 +186,8 @@ public class InitializingReactiveSocketClientTest {
             }
         });
 
-        InitializingReactiveSocketClient initializingReactiveSocketClient
-            = new InitializingReactiveSocketClient(reactiveSocketFactory, socketAddress, 10, TimeUnit.SECONDS, 10, TimeUnit.SECONDS);
+        InitializingDelegatingReactiveSocket initializingReactiveSocketClient
+            = new InitializingDelegatingReactiveSocket(reactiveSocketFactory, socketAddress, 10, TimeUnit.SECONDS, 10, TimeUnit.SECONDS);
 
         double availability = initializingReactiveSocketClient.availability();
         Assert.assertTrue(1.0 == availability);
@@ -208,7 +210,7 @@ public class InitializingReactiveSocketClientTest {
         testSubscriber.awaitTerminalEvent();
         testSubscriber.assertError(RuntimeException.class);
 
-        Mockito.verify(reactiveSocketFactory, Mockito.times(1)).call(socketAddress, 10, TimeUnit.SECONDS);
+        Mockito.verify(reactiveSocketFactory, Mockito.times(1)).call(Mockito.any(SocketAddress.class), Mockito.anyInt(), Mockito.any(TimeUnit.class), Mockito.any(ScheduledExecutorService.class));
 
         availability = initializingReactiveSocketClient.availability();
         System.out.println(availability);
@@ -243,7 +245,7 @@ public class InitializingReactiveSocketClientTest {
 
         SocketAddress socketAddress = InetSocketAddress.createUnresolved("localhost", 8080);
 
-        Mockito.when(reactiveSocketFactory.call(socketAddress, 10, TimeUnit.SECONDS)).thenReturn(new Publisher<ReactiveSocket>() {
+        Mockito.when(reactiveSocketFactory.call(Mockito.any(SocketAddress.class), Mockito.anyInt(), Mockito.any(TimeUnit.class), Mockito.any(ScheduledExecutorService.class))).thenReturn(new Publisher<ReactiveSocket>() {
             @Override
             public void subscribe(Subscriber<? super ReactiveSocket> s) {
                 s.onSubscribe(EmptySubscription.INSTANCE);
@@ -252,8 +254,8 @@ public class InitializingReactiveSocketClientTest {
             }
         });
 
-        InitializingReactiveSocketClient initializingReactiveSocketClient
-            = new InitializingReactiveSocketClient(reactiveSocketFactory, socketAddress, 10, TimeUnit.SECONDS, 1, TimeUnit.SECONDS);
+        InitializingDelegatingReactiveSocket initializingReactiveSocketClient
+            = new InitializingDelegatingReactiveSocket(reactiveSocketFactory, socketAddress, 10, TimeUnit.SECONDS, 1, TimeUnit.SECONDS);
 
         double availability = initializingReactiveSocketClient.availability();
         Assert.assertTrue(1.0 == availability);
@@ -276,7 +278,7 @@ public class InitializingReactiveSocketClientTest {
         testSubscriber.awaitTerminalEvent();
         testSubscriber.assertError(RuntimeException.class);
 
-        Mockito.verify(reactiveSocketFactory, Mockito.times(1)).call(socketAddress, 10, TimeUnit.SECONDS);
+        Mockito.verify(reactiveSocketFactory, Mockito.times(1)).call(Mockito.any(SocketAddress.class), Mockito.anyInt(), Mockito.any(TimeUnit.class), Mockito.any(ScheduledExecutorService.class));
 
         availability = initializingReactiveSocketClient.availability();
         System.out.println(availability);
@@ -320,7 +322,7 @@ public class InitializingReactiveSocketClientTest {
 
         SocketAddress socketAddress = InetSocketAddress.createUnresolved("localhost", 8080);
 
-        Mockito.when(reactiveSocketFactory.call(socketAddress, 10, TimeUnit.SECONDS)).thenReturn(new Publisher<ReactiveSocket>() {
+        Mockito.when(reactiveSocketFactory.call(Mockito.any(SocketAddress.class), Mockito.anyInt(), Mockito.any(TimeUnit.class), Mockito.any(ScheduledExecutorService.class))).thenReturn(new Publisher<ReactiveSocket>() {
             @Override
             public void subscribe(Subscriber<? super ReactiveSocket> s) {
                 s.onSubscribe(EmptySubscription.INSTANCE);
@@ -329,8 +331,8 @@ public class InitializingReactiveSocketClientTest {
             }
         });
 
-        InitializingReactiveSocketClient initializingReactiveSocketClient
-            = new InitializingReactiveSocketClient(reactiveSocketFactory, socketAddress, 10, TimeUnit.SECONDS, 10, TimeUnit.SECONDS);
+        InitializingDelegatingReactiveSocket initializingReactiveSocketClient
+            = new InitializingDelegatingReactiveSocket(reactiveSocketFactory, socketAddress, 10, TimeUnit.SECONDS, 10, TimeUnit.SECONDS);
 
         initializingReactiveSocketClient.guard.tryAcquire();
 

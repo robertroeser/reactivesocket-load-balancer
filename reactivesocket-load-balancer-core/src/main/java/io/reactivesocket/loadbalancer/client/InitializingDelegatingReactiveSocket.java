@@ -2,8 +2,8 @@ package io.reactivesocket.loadbalancer.client;
 
 import io.reactivesocket.Payload;
 import io.reactivesocket.ReactiveSocket;
+import io.reactivesocket.ReactiveSocketFactory;
 import io.reactivesocket.internal.rx.EmptySubscription;
-import io.reactivesocket.loadbalancer.ReactiveSocketFactory;
 import io.reactivesocket.rx.Completable;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
@@ -12,10 +12,12 @@ import org.reactivestreams.Subscription;
 import java.net.SocketAddress;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
-public class InitializingReactiveSocketClient implements ReactiveSocketClient {
+public class InitializingDelegatingReactiveSocket implements DelegatingReactiveSocket {
     private final ReactiveSocketFactory reactiveSocketFactory;
     private final SocketAddress socketAddress;
 
@@ -33,14 +35,33 @@ public class InitializingReactiveSocketClient implements ReactiveSocketClient {
     
     private volatile long connectionFailureTimestamp = 0;
 
+    private final ScheduledExecutorService scheduledExecutorService;
 
-    public InitializingReactiveSocketClient(
-        ReactiveSocketFactory reactiveSocketFactory, 
+    public InitializingDelegatingReactiveSocket(
+        ReactiveSocketFactory reactiveSocketFactory,
+        SocketAddress socketAddress,
+        long timeout,
+        TimeUnit timeoutTimeUnit,
+        long connectionFailureRetryWindow,
+        TimeUnit retryWindowUnit) {
+        this(
+            reactiveSocketFactory,
+            socketAddress,
+            timeout,
+            timeoutTimeUnit,
+            connectionFailureRetryWindow,
+            retryWindowUnit,
+            Executors.newSingleThreadScheduledExecutor(r -> new Thread("initializing-reactive-socket-timeout")));
+    }
+
+    public InitializingDelegatingReactiveSocket(
+        ReactiveSocketFactory reactiveSocketFactory,
         SocketAddress socketAddress, 
         long timeout, 
         TimeUnit timeoutTimeUnit,
         long connectionFailureRetryWindow,
-        TimeUnit retryWindowUnit) {
+        TimeUnit retryWindowUnit,
+        ScheduledExecutorService scheduledExecutorService) {
         this.reactiveSocketFactory = reactiveSocketFactory;
         this.socketAddress = socketAddress;
         this.timeout = timeout;
@@ -49,6 +70,7 @@ public class InitializingReactiveSocketClient implements ReactiveSocketClient {
         this.awaitingReactiveSocket = new CopyOnWriteArrayList<>();
         this.connectionFailureRetryWindow = connectionFailureRetryWindow;
         this.retryWindowUnit = retryWindowUnit;
+        this.scheduledExecutorService = scheduledExecutorService;
     }
 
     @Override
@@ -69,7 +91,7 @@ public class InitializingReactiveSocketClient implements ReactiveSocketClient {
     <T> Publisher<T> init(Action action) {
         if (guard.tryAcquire()) {
             Publisher<ReactiveSocket> reactiveSocketPublisher
-                = reactiveSocketFactory.call(socketAddress, timeout, unit);
+                = reactiveSocketFactory.call(socketAddress, timeout, unit, scheduledExecutorService);
 
             return s -> {
                 s.onSubscribe(EmptySubscription.INSTANCE);
@@ -281,6 +303,11 @@ public class InitializingReactiveSocketClient implements ReactiveSocketClient {
         } else {
             return reactiveSocket.fireAndForget(payload);
         }
+    }
+
+    @Override
+    public Publisher<Payload> requestChannel(Publisher<Payload> payloads) {
+        throw new UnsupportedOperationException();
     }
 
     @Override

@@ -1,59 +1,72 @@
 package io.reactivesocket.loadbalancer.eureka;
 
 import com.netflix.discovery.DiscoveryClient;
-import io.reactivesocket.loadbalancer.ReactiveSocketClientFactory;
-import io.reactivesocket.loadbalancer.ReactiveSocketFactory;
+import io.reactivesocket.ReactiveSocket;
+import io.reactivesocket.ReactiveSocketFactory;
+import io.reactivesocket.internal.rx.EmptySubscription;
+import io.reactivesocket.ReactiveSocketFactory;
 import io.reactivesocket.loadbalancer.XORShiftRandom;
-import io.reactivesocket.loadbalancer.client.LoadEstimatorReactiveSocketClient;
-import io.reactivesocket.loadbalancer.client.FailureAwareReactiveSocketClient;
-import io.reactivesocket.loadbalancer.client.InitializingReactiveSocketClient;
-import io.reactivesocket.loadbalancer.client.LoadBalancerReactiveSocketClient;
-import io.reactivesocket.loadbalancer.client.ReactiveSocketClient;
-import io.reactivesocket.loadbalancer.servo.ServoMetricsReactiveSocketClient;
+import io.reactivesocket.loadbalancer.client.DelegatingReactiveSocket;
+import io.reactivesocket.loadbalancer.client.FailureAwareDelegatingReactiveSocket;
+import io.reactivesocket.loadbalancer.client.InitializingDelegatingReactiveSocket;
+import io.reactivesocket.loadbalancer.client.LoadBalancerDelegatingReactiveSocket;
+import io.reactivesocket.loadbalancer.client.LoadEstimatorDelegatingReactiveSocket;
+import io.reactivesocket.loadbalancer.servo.ServoMetricsDelegatingReactiveSocket;
+import org.reactivestreams.Publisher;
 
 import java.util.concurrent.TimeUnit;
 
 /**
- * Implementation of {@link ReactiveSocketClientFactory} that creates {@link ReactiveSocketClient}s that use a
+ * Implementation of {@link ReactiveSocketFactory} that creates {@link DelegatingReactiveSocket}s that use a
  * {@link EurekaReactiveSocketClientFactory} to look instances to talk to.
  */
-public class EurekaReactiveSocketClientFactory implements ReactiveSocketClientFactory<EurekaReactiveSocketClientFactory.EurekaReactiveSocketClientFactoryConfig> {
+public class EurekaReactiveSocketClientFactory implements ReactiveSocketFactory<EurekaReactiveSocketClientFactory.EurekaReactiveSocketClientFactoryConfig, ReactiveSocket> {
     
     private DiscoveryClient discoveryClient;
 
     public EurekaReactiveSocketClientFactory(DiscoveryClient discoveryClient) {
         this.discoveryClient = discoveryClient;
     }
-    
+
     @Override
-    public ReactiveSocketClient apply(EurekaReactiveSocketClientFactoryConfig config) {
-        EurekaSocketAddressFactory addressFactory = new EurekaSocketAddressFactory(
-            discoveryClient,
-            config.vip,
-            config.secure,
-            config.poolsize);
+    public Publisher<ReactiveSocket> call(EurekaReactiveSocketClientFactoryConfig config) {
+        return s -> {
+            EurekaSocketAddressFactory addressFactory = new EurekaSocketAddressFactory(
+                discoveryClient,
+                config.vip,
+                config.secure,
+                config.poolsize);
 
-        LoadBalancerReactiveSocketClient loadBalancerReactiveSocketClient = new LoadBalancerReactiveSocketClient(
-            addressFactory,
-            addressFactory.getClosedConnectionProvider(),
-            socketAddress -> {
-                InitializingReactiveSocketClient initializingReactiveSocketClient
-                    = new InitializingReactiveSocketClient(
-                    config.reactiveSocketFactory,
-                    socketAddress,
-                    config.connectionFailureTimeout,
-                    config.connectionFailureTimeoutTimeUnit,
-                    config.connectionFailureRetryWindow,
-                    config.retryWindowUnit);
+            LoadBalancerDelegatingReactiveSocket loadBalancerReactiveSocketClient = new LoadBalancerDelegatingReactiveSocket(
+                addressFactory,
+                addressFactory.getClosedConnectionProvider(),
+                socketAddress -> {
+                    InitializingDelegatingReactiveSocket initializingReactiveSocketClient
+                        = new InitializingDelegatingReactiveSocket(
+                        config.reactiveSocketFactory,
+                        socketAddress,
+                        config.connectionFailureTimeout,
+                        config.connectionFailureTimeoutTimeUnit,
+                        config.connectionFailureRetryWindow,
+                        config.retryWindowUnit);
 
-                FailureAwareReactiveSocketClient failureAwareReactiveSocketClient
-                    = new FailureAwareReactiveSocketClient(initializingReactiveSocketClient, config.failureWindow, config.failureWindowUnit);
+                    FailureAwareDelegatingReactiveSocket failureAwareReactiveSocketClient
+                        = new FailureAwareDelegatingReactiveSocket(initializingReactiveSocketClient, config.failureWindow, config.failureWindowUnit);
 
-                return new LoadEstimatorReactiveSocketClient(failureAwareReactiveSocketClient, config.tauUp, config.tauDown);
-            },
-            () -> XORShiftRandom.getInstance().randomInt());
+                    return subscriber -> {
+                        subscriber.onSubscribe(EmptySubscription.INSTANCE);
+                        subscriber.onNext(new LoadEstimatorDelegatingReactiveSocket(failureAwareReactiveSocketClient, config.tauUp, config.tauDown));
+                        subscriber.onComplete();
+                    };
+                },
+                () -> XORShiftRandom.getInstance().randomInt());
 
-        return new ServoMetricsReactiveSocketClient(loadBalancerReactiveSocketClient, config.vip);
+            ServoMetricsDelegatingReactiveSocket servoMetricsDelegatingReactiveSocket = new ServoMetricsDelegatingReactiveSocket(loadBalancerReactiveSocketClient, config.vip);
+
+            s.onSubscribe(EmptySubscription.INSTANCE);
+            s.onNext(servoMetricsDelegatingReactiveSocket);
+            s.onComplete();
+        };
     }
 
     public static class EurekaReactiveSocketClientFactoryConfig {

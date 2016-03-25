@@ -1,7 +1,8 @@
-package io.reactivesocket.loadbalancer.client;
+package io.reactivesocket.loadbalancer.servo;
 
 import io.reactivesocket.Payload;
 import io.reactivesocket.internal.rx.EmptySubscription;
+import io.reactivesocket.loadbalancer.client.DelegatingReactiveSocket;
 import org.junit.Assert;
 import org.junit.Test;
 import org.reactivestreams.Publisher;
@@ -10,16 +11,88 @@ import rx.RxReactiveStreams;
 import rx.observers.TestSubscriber;
 
 import java.nio.ByteBuffer;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Created by rroeser on 3/7/16.
  */
-public class LoadEstimatorReactiveSocketClientTest {
+public class ServoMetricsDelegatingReactiveSocketTest {
     @Test
-    public void testStartupPenalty() {
-        LoadEstimatorReactiveSocketClient client = new LoadEstimatorReactiveSocketClient(new ReactiveSocketClient() {
+    public void testCountSuccess() {
+        ServoMetricsDelegatingReactiveSocket client = new ServoMetricsDelegatingReactiveSocket(new DelegatingReactiveSocket() {
+            @Override
+            public Publisher<Void> metadataPush(Payload payload) {
+                return null;
+            }
+
+            @Override
+            public Publisher<Void> fireAndForget(Payload payload) {
+                return null;
+            }
+
+            @Override
+            public Publisher<Payload> requestSubscription(Payload payload) {
+                return null;
+            }
+
+            @Override
+            public Publisher<Payload> requestStream(Payload payload) {
+                return null;
+            }
+
+            @Override
+            public Publisher<Payload> requestResponse(Payload payload) {
+                return s -> {
+                    s.onNext(new Payload() {
+                        @Override
+                        public ByteBuffer getData() {
+                            return null;
+                        }
+
+                        @Override
+                        public ByteBuffer getMetadata() {
+                            return null;
+                        }
+                    });
+
+                    s.onComplete();
+                };
+            }
+
+            @Override
+            public Publisher<Payload> requestChannel(Publisher<Payload> payloads) {
+                return null;
+            }
+
+            @Override
+            public void close() throws Exception {
+
+            }
+        }, "test");
+
+        Publisher<Payload> payloadPublisher = client.requestResponse(new Payload() {
+            @Override
+            public ByteBuffer getData() {
+                return null;
+            }
+
+            @Override
+            public ByteBuffer getMetadata() {
+                return null;
+            }
+        });
+
+        TestSubscriber subscriber = new TestSubscriber();
+        RxReactiveStreams.toObservable(payloadPublisher).subscribe(subscriber);
+        subscriber.awaitTerminalEvent();
+        subscriber.assertNoErrors();
+
+        Assert.assertEquals(1, client.success.get());
+    }
+
+    @Test
+    public void testCountFailure() {
+        ServoMetricsDelegatingReactiveSocket client = new ServoMetricsDelegatingReactiveSocket(new DelegatingReactiveSocket() {
             @Override
             public Publisher<Void> metadataPush(Payload payload) {
                 return null;
@@ -45,89 +118,22 @@ public class LoadEstimatorReactiveSocketClientTest {
                 return new Publisher<Payload>() {
                     @Override
                     public void subscribe(Subscriber<? super Payload> s) {
-                        s.onNext(new Payload() {
-                            @Override
-                            public ByteBuffer getData() {
-                                return null;
-                            }
-
-                            @Override
-                            public ByteBuffer getMetadata() {
-                                return null;
-                            }
-                        });
-
-                        s.onComplete();
+                        s.onSubscribe(EmptySubscription.INSTANCE);
+                        s.onError(new RuntimeException());
                     }
                 };
             }
 
             @Override
-            public void close() throws Exception {
-
-            }
-        }, 2, 5);
-
-        double availability = client.availability();
-        Assert.assertTrue(0.5 == availability);
-        client.pending = 1;
-        availability = client.availability();
-        Assert.assertTrue(1.0 > availability);
-    }
-
-    @Test
-    public void testGoodRequest() {
-        AtomicInteger integer = new AtomicInteger(2500);
-        LoadEstimatorReactiveSocketClient client = new LoadEstimatorReactiveSocketClient(new ReactiveSocketClient() {
-            @Override
-            public Publisher<Void> metadataPush(Payload payload) {
+            public Publisher<Payload> requestChannel(Publisher<Payload> payloads) {
                 return null;
-            }
-
-            @Override
-            public Publisher<Void> fireAndForget(Payload payload) {
-                return null;
-            }
-
-            @Override
-            public Publisher<Payload> requestSubscription(Payload payload) {
-                return null;
-            }
-
-            @Override
-            public Publisher<Payload> requestStream(Payload payload) {
-                return null;
-            }
-
-            @Override
-            public Publisher<Payload> requestResponse(Payload payload) {
-                return s -> {
-                    try {
-                        Thread.sleep(50 + integer.getAndAdd(-500));
-                    } catch (Throwable t) {}
-
-                    s.onNext(new Payload() {
-                        @Override
-                        public ByteBuffer getData() {
-                            return null;
-                        }
-
-                        @Override
-                        public ByteBuffer getMetadata() {
-                            return null;
-                        }
-                    });
-
-                    s.onComplete();
-                };
-
             }
 
             @Override
             public void close() throws Exception {
 
             }
-        }, 2, 5);
+        }, "test");
 
         Publisher<Payload> payloadPublisher = client.requestResponse(new Payload() {
             @Override
@@ -144,26 +150,15 @@ public class LoadEstimatorReactiveSocketClientTest {
         TestSubscriber subscriber = new TestSubscriber();
         RxReactiveStreams.toObservable(payloadPublisher).subscribe(subscriber);
         subscriber.awaitTerminalEvent();
-        subscriber.assertCompleted();
+        subscriber.assertError(RuntimeException.class);
 
-        double old = client.availability();
+        Assert.assertEquals(1, client.failure.get());
 
-        for (int i = 0; i < 0; i++) {
-            subscriber = new TestSubscriber();
-            RxReactiveStreams.toObservable(payloadPublisher).subscribe(subscriber);
-            subscriber.awaitTerminalEvent();
-            subscriber.assertCompleted();
-            double n = client.availability();
-            System.out.println();
-            Assert.assertTrue(old < n);
-            old = n;
-        }
     }
 
     @Test
-    public void testIncreasingSleep() {
-        AtomicInteger integer = new AtomicInteger();
-        LoadEstimatorReactiveSocketClient client = new LoadEstimatorReactiveSocketClient(new ReactiveSocketClient() {
+    public void testHistogram() {
+        ServoMetricsDelegatingReactiveSocket client = new ServoMetricsDelegatingReactiveSocket(new DelegatingReactiveSocket() {
             @Override
             public Publisher<Void> metadataPush(Payload payload) {
                 return null;
@@ -186,12 +181,13 @@ public class LoadEstimatorReactiveSocketClientTest {
 
             @Override
             public Publisher<Payload> requestResponse(Payload payload) {
+                try {
+                    Thread.sleep(ThreadLocalRandom.current().nextInt(10, 50));
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
                 return s -> {
                     s.onSubscribe(EmptySubscription.INSTANCE);
-                    try {
-                        Thread.sleep(50 + integer.getAndAdd(500));
-                    } catch (Throwable t) {}
-
                     s.onNext(new Payload() {
                         @Override
                         public ByteBuffer getData() {
@@ -206,45 +202,44 @@ public class LoadEstimatorReactiveSocketClientTest {
 
                     s.onComplete();
                 };
+            }
 
-
-
+            @Override
+            public Publisher<Payload> requestChannel(Publisher<Payload> payloads) {
+                return null;
             }
 
             @Override
             public void close() throws Exception {
 
             }
-        }, TimeUnit.SECONDS.toNanos(1), TimeUnit.SECONDS.toNanos(5));
+        }, "test");
 
-        Publisher<Payload> payloadPublisher = client.requestResponse(new Payload() {
-            @Override
-            public ByteBuffer getData() {
-                return null;
-            }
+        for (int i = 0; i < 10; i ++) {
+            Publisher<Payload> payloadPublisher = client.requestResponse(new Payload() {
+                @Override
+                public ByteBuffer getData() {
+                    return null;
+                }
 
-            @Override
-            public ByteBuffer getMetadata() {
-                return null;
-            }
-        });
+                @Override
+                public ByteBuffer getMetadata() {
+                    return null;
+                }
+            });
 
-        TestSubscriber subscriber = new TestSubscriber();
-        RxReactiveStreams.toObservable(payloadPublisher).subscribe(subscriber);
-        subscriber.awaitTerminalEvent();
-        subscriber.assertCompleted();
-
-        double old = client.availability();
-
-        for (int i = 0; i < 5; i++) {
-            subscriber = new TestSubscriber();
+            TestSubscriber subscriber = new TestSubscriber();
             RxReactiveStreams.toObservable(payloadPublisher).subscribe(subscriber);
             subscriber.awaitTerminalEvent();
-            subscriber.assertCompleted();
-            double n = client.availability();
-            Assert.assertTrue(old > n);
-            old = n;
+            subscriber.assertNoErrors();
         }
-    }
 
+        Assert.assertEquals(10, client.success.get());
+        Assert.assertEquals(0, client.failure.get());
+
+        System.out.println(client.timer.histrogramToString());
+
+        Assert.assertNotNull(client.timer.histrogramToString());
+        Assert.assertNotEquals(client.timer.getMax(), client.timer.getMin());
+    }
 }
