@@ -1,8 +1,8 @@
 package io.reactivesocket.loadbalancer.eureka;
 
 import com.netflix.discovery.DiscoveryClient;
+import io.reactivesocket.ReactiveSocketFactory;
 import io.reactivesocket.loadbalancer.ReactiveSocketClientFactory;
-import io.reactivesocket.loadbalancer.ReactiveSocketFactory;
 import io.reactivesocket.loadbalancer.XORShiftRandom;
 import io.reactivesocket.loadbalancer.client.LoadEstimatorReactiveSocketClient;
 import io.reactivesocket.loadbalancer.client.FailureAwareReactiveSocketClient;

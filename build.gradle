@@ -3,7 +3,7 @@ buildscript {
         jcenter()
     }
 
-    dependencies { classpath 'io.reactivesocket:gradle-nebula-plugin-reactivesocket:1.0.4' }
+    dependencies { classpath 'io.reactivesocket:gradle-nebula-plugin-reactivesocket:1.0.5' }
 }
 
 description = 'ReactiveSocket: stream oriented messaging passing with Reactive Stream semantics.'
@@ -14,11 +14,6 @@ subprojects {
     apply plugin: 'reactivesocket-project'
     apply plugin: 'java'
     sourceCompatibility = 1.8
-
-    repositories {
-        jcenter()
-        maven { url 'https://oss.jfrog.org/libs-snapshot' }
-    }
 
     dependencies {
         compile 'io.reactivesocket:reactivesocket:0.0.4'

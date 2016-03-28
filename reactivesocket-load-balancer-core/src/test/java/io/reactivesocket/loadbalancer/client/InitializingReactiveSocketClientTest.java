@@ -2,8 +2,8 @@ package io.reactivesocket.loadbalancer.client;
 
 import io.reactivesocket.Payload;
 import io.reactivesocket.ReactiveSocket;
+import io.reactivesocket.ReactiveSocketFactory;
 import io.reactivesocket.internal.rx.EmptySubscription;
-import io.reactivesocket.loadbalancer.ReactiveSocketFactory;
 import org.junit.Assert;
 import org.junit.Test;
 import org.mockito.Mockito;
