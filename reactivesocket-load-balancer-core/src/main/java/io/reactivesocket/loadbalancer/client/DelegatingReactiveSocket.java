@@ -1,12 +1,16 @@
 package io.reactivesocket.loadbalancer.client;
 
 import io.reactivesocket.Payload;
+import io.reactivesocket.ReactiveSocket;
 import io.reactivesocket.internal.rx.EmptySubscription;
+import io.reactivesocket.rx.Completable;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
 
-public interface ReactiveSocketClient extends AutoCloseable {
+import java.util.function.Consumer;
+
+public interface DelegatingReactiveSocket extends ReactiveSocket {
 
     /**
      * Calculates the availability of the client from 1.0 to 0.0 where
@@ -18,15 +22,32 @@ public interface ReactiveSocketClient extends AutoCloseable {
         return 1;
     }
 
-    Publisher<Payload> requestResponse(Payload payload);
+    @Override
+    default void start(Completable c) {
+        c.success();
+    }
 
-    Publisher<Payload> requestStream(Payload payload);
+    @Override
+    default void onRequestReady(Consumer<Throwable> c) {
+        c.accept(null);
+    }
 
-    Publisher<Payload> requestSubscription(Payload payload);
+    @Override
+    default void onRequestReady(Completable c) {
+        c.success();
+    }
 
-    Publisher<Void> fireAndForget(Payload payload);
+    @Override
+    default void sendLease(int ttl, int numberOfRequests) {
+    }
 
-    Publisher<Void> metadataPush(Payload payload);
+    @Override
+    default void shutdown() {
+    }
+
+    @Override
+    default void close() throws Exception {
+    }
 
     /**
      * Convenient way to delegate your request/response to the another ReactiveSocketClient. You call this inside a
@@ -35,7 +56,7 @@ public interface ReactiveSocketClient extends AutoCloseable {
      * @param client the reactivesocket client to delegate too
      * @param payload the payload that is being sent
      */
-    default void delegateRequestResponse(Subscriber<? super Payload> subscriber, ReactiveSocketClient client, Payload payload) {
+    default void delegateRequestResponse(Subscriber<? super Payload> subscriber, DelegatingReactiveSocket client, Payload payload) {
         subscriber.onSubscribe(EmptySubscription.INSTANCE);
         client
             .requestResponse(payload)
@@ -62,7 +83,7 @@ public interface ReactiveSocketClient extends AutoCloseable {
             });
     }
 
-    default void delegateRequestSubscription(Subscriber<? super Payload> subscriber, ReactiveSocketClient client, Payload payload) {
+    default void delegateRequestSubscription(Subscriber<? super Payload> subscriber, DelegatingReactiveSocket client, Payload payload) {
         subscriber.onSubscribe(EmptySubscription.INSTANCE);
         client.requestSubscription(payload).subscribe(new Subscriber<Payload>() {
             Subscription subscription;
@@ -97,7 +118,7 @@ public interface ReactiveSocketClient extends AutoCloseable {
      * @param client the reactivesocket client to delegate too
      * @param payload the payload that is being sent
      */
-    default void delegateRequestResponse(Subscriber<? super Payload> subscriber, ReactiveSocketClient client, Payload payload, Runnable doOnComplete) {
+    default void delegateRequestResponse(Subscriber<? super Payload> subscriber, DelegatingReactiveSocket client, Payload payload, Runnable doOnComplete) {
         subscriber.onSubscribe(EmptySubscription.INSTANCE);
         client
             .requestResponse(payload)
@@ -132,7 +153,7 @@ public interface ReactiveSocketClient extends AutoCloseable {
      * @param client the reactivesocket client to delegate too
      * @param payload the payload that is being sent
      */
-    default void delegateRequestResponse(Subscriber<? super Payload> subscriber, ReactiveSocketClient client, Payload payload, Runnable doOnComplete, Runnable doOnError) {
+    default void delegateRequestResponse(Subscriber<? super Payload> subscriber, DelegatingReactiveSocket client, Payload payload, Runnable doOnComplete, Runnable doOnError) {
         subscriber.onSubscribe(EmptySubscription.INSTANCE);
         client
             .requestResponse(payload)

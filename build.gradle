@@ -15,8 +15,13 @@ subprojects {
     apply plugin: 'java'
     sourceCompatibility = 1.8
 
+    repositories {
+        jcenter()
+        maven { url 'https://oss.jfrog.org/libs-snapshot' }
+    }
+
     dependencies {
-        compile 'io.reactivesocket:reactivesocket:0.0.4'
+        compile 'io.reactivesocket:reactivesocket:0.0.5'
         testCompile 'junit:junit:4.12'
         testCompile 'org.mockito:mockito-core:1.8.5'
         testCompile 'io.reactivex:rxjava:1.1.2'

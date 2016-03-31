@@ -14,11 +14,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * Created by rroeser on 3/8/16.
  */
-public class FailureAwareReactiveSocketClientTest {
+public class FailureAwareDelegatingReactiveSocketTest {
     @Test
     public void testError() throws InterruptedException {
         AtomicInteger count = new AtomicInteger(0);
-        FailureAwareReactiveSocketClient client = new FailureAwareReactiveSocketClient(new ReactiveSocketClient() {
+        FailureAwareDelegatingReactiveSocket client = new FailureAwareDelegatingReactiveSocket(new DelegatingReactiveSocket() {
 
             @Override
             public Publisher<Void> metadataPush(Payload payload) {
@@ -63,6 +63,11 @@ public class FailureAwareReactiveSocketClientTest {
                         s.onError(new RuntimeException());
                     }
                 };
+            }
+
+            @Override
+            public Publisher<Payload> requestChannel(Publisher<Payload> payloads) {
+                return null;
             }
 
             @Override
@@ -103,7 +108,7 @@ public class FailureAwareReactiveSocketClientTest {
     @Test
     public void testWidowReset() throws InterruptedException {
         AtomicInteger count = new AtomicInteger(0);
-        FailureAwareReactiveSocketClient client = new FailureAwareReactiveSocketClient(new ReactiveSocketClient() {
+        FailureAwareDelegatingReactiveSocket client = new FailureAwareDelegatingReactiveSocket(new DelegatingReactiveSocket() {
             @Override
             public Publisher<Void> metadataPush(Payload payload) {
                 return null;
@@ -147,6 +152,11 @@ public class FailureAwareReactiveSocketClientTest {
                         s.onError(new RuntimeException());
                     }
                 };
+            }
+
+            @Override
+            public Publisher<Payload> requestChannel(Publisher<Payload> payloads) {
+                return null;
             }
 
             @Override
