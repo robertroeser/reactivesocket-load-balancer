@@ -11,13 +11,13 @@ import java.util.concurrent.atomic.AtomicLong;
 /**
  * Calculates a clients availibility uses EWMA
  */
-public class LoadEstimatorReactiveSocketClient implements ReactiveSocketClient {
+public class LoadEstimatorDelegatingReactiveSocket implements DelegatingReactiveSocket {
     private static final double STARTUP_PENALTY = Long.MAX_VALUE >> 12;
 
     private final long epoch = System.nanoTime();
     private final double tauUp;
     private final double tauDown;
-    private final ReactiveSocketClient child;
+    private final DelegatingReactiveSocket child;
 
     private volatile long stamp = epoch;  // last timestamp in nanos we observed an rtt
     volatile int pending = 0;     // instantaneous rate
@@ -25,9 +25,9 @@ public class LoadEstimatorReactiveSocketClient implements ReactiveSocketClient {
 
     private AtomicLong count;
 
-    public LoadEstimatorReactiveSocketClient(ReactiveSocketClient child,
-                                             double tauUp,
-                                             double tauDown) {
+    public LoadEstimatorDelegatingReactiveSocket(DelegatingReactiveSocket child,
+                                                 double tauUp,
+                                                 double tauDown) {
         this.child = child;
         this.tauUp = tauUp;
         this.tauDown = tauDown;
@@ -212,6 +212,12 @@ public class LoadEstimatorReactiveSocketClient implements ReactiveSocketClient {
                 });
         };
     }
+
+    @Override
+    public Publisher<Payload> requestChannel(Publisher<Payload> payloads) {
+        throw new UnsupportedOperationException();
+    }
+
 
     private synchronized double getWeight() {
         double weight;

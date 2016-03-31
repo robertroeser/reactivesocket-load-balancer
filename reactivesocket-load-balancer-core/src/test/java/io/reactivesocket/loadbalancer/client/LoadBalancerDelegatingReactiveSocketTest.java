@@ -1,9 +1,9 @@
 package io.reactivesocket.loadbalancer.client;
 
 import io.reactivesocket.Payload;
+import io.reactivesocket.ReactiveSocketFactory;
 import io.reactivesocket.internal.rx.EmptySubscription;
 import io.reactivesocket.loadbalancer.ClosedConnectionsProvider;
-import io.reactivesocket.loadbalancer.ReactiveSocketClientFactory;
 import io.reactivesocket.loadbalancer.SocketAddressFactory;
 import io.reactivesocket.loadbalancer.XORShiftRandom;
 import org.junit.Assert;
@@ -25,11 +25,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * Created by rroeser on 3/9/16.
  */
-public class LoadBalancerReactiveSocketClientTest {
+public class LoadBalancerDelegatingReactiveSocketTest {
     @Test
     public void testNoConnectionsAvailable() {
-        LoadBalancerReactiveSocketClient client
-            = new LoadBalancerReactiveSocketClient(new SocketAddressFactory() {
+        LoadBalancerDelegatingReactiveSocket client
+            = new LoadBalancerDelegatingReactiveSocket(new SocketAddressFactory() {
             @Override
             public Publisher<List<SocketAddress>> call() {
                 return new Publisher<List<SocketAddress>>() {
@@ -52,12 +52,17 @@ public class LoadBalancerReactiveSocketClientTest {
                     }
                 };
             }
-        }, new ReactiveSocketClientFactory<SocketAddress>() {
+        }, new ReactiveSocketFactory<SocketAddress, DelegatingReactiveSocket>() {
             @Override
-            public ReactiveSocketClient apply(SocketAddress socketAddress) {
+            public DelegatingReactiveSocket callAndWait(SocketAddress socketAddress) {
                 return null;
             }
-        }, new LoadBalancerReactiveSocketClient.NumberGenerator() {
+
+            @Override
+            public Publisher<DelegatingReactiveSocket> call(SocketAddress socketAddress) {
+                return null;
+            }
+        }, new LoadBalancerDelegatingReactiveSocket.NumberGenerator() {
             @Override
             public int generateInt() {
                 return XORShiftRandom.getInstance().randomInt();
@@ -86,11 +91,11 @@ public class LoadBalancerReactiveSocketClientTest {
     @Test
     public void testNoConnectionsAvailableWithZeroAvailibility() {
 
-        ReactiveSocketClient c = Mockito.mock(ReactiveSocketClient.class);
+        DelegatingReactiveSocket c = Mockito.mock(DelegatingReactiveSocket.class);
         Mockito.when(c.availability()).thenReturn(0.0);
 
-        LoadBalancerReactiveSocketClient client
-            = new LoadBalancerReactiveSocketClient(new SocketAddressFactory() {
+        LoadBalancerDelegatingReactiveSocket client
+            = new LoadBalancerDelegatingReactiveSocket(new SocketAddressFactory() {
             @Override
             public Publisher<List<SocketAddress>> call() {
                 return new Publisher<List<SocketAddress>>() {
@@ -115,13 +120,16 @@ public class LoadBalancerReactiveSocketClientTest {
                     }
                 };
             }
-        }, new ReactiveSocketClientFactory<SocketAddress>() {
+        }, new ReactiveSocketFactory<SocketAddress, DelegatingReactiveSocket>() {
             @Override
-            public ReactiveSocketClient apply(SocketAddress socketAddress) {
-
-                return c;
+            public Publisher<DelegatingReactiveSocket> call(SocketAddress socketAddress) {
+                return s -> {
+                    s.onSubscribe(EmptySubscription.INSTANCE);
+                    s.onNext(c);
+                    s.onComplete();
+                };
             }
-        }, new LoadBalancerReactiveSocketClient.NumberGenerator() {
+        }, new LoadBalancerDelegatingReactiveSocket.NumberGenerator() {
             @Override
             public int generateInt() {
                 return XORShiftRandom.getInstance().randomInt();
@@ -152,7 +160,7 @@ public class LoadBalancerReactiveSocketClientTest {
     @Test
     public void testOneAvailibleConnection() {
 
-        ReactiveSocketClient c = Mockito.mock(ReactiveSocketClient.class);
+        DelegatingReactiveSocket c = Mockito.mock(DelegatingReactiveSocket.class);
         Mockito.when(c.availability()).thenReturn(1.0);
         Mockito
             .when(c.requestResponse(Mockito.any(Payload.class)))
@@ -175,8 +183,8 @@ public class LoadBalancerReactiveSocketClientTest {
                 }
             });
 
-        LoadBalancerReactiveSocketClient client
-            = new LoadBalancerReactiveSocketClient(new SocketAddressFactory() {
+        LoadBalancerDelegatingReactiveSocket client
+            = new LoadBalancerDelegatingReactiveSocket(new SocketAddressFactory() {
             @Override
             public Publisher<List<SocketAddress>> call() {
                 return new Publisher<List<SocketAddress>>() {
@@ -201,13 +209,16 @@ public class LoadBalancerReactiveSocketClientTest {
                     }
                 };
             }
-        }, new ReactiveSocketClientFactory<SocketAddress>() {
+        }, new ReactiveSocketFactory<SocketAddress, DelegatingReactiveSocket>() {
             @Override
-            public ReactiveSocketClient apply(SocketAddress socketAddress) {
-
-                return c;
+            public Publisher<DelegatingReactiveSocket> call(SocketAddress socketAddress) {
+                return s -> {
+                    s.onSubscribe(EmptySubscription.INSTANCE);
+                    s.onNext(c);
+                    s.onComplete();
+                };
             }
-        }, new LoadBalancerReactiveSocketClient.NumberGenerator() {
+        }, new LoadBalancerDelegatingReactiveSocket.NumberGenerator() {
             @Override
             public int generateInt() {
                 return XORShiftRandom.getInstance().randomInt();
@@ -238,7 +249,7 @@ public class LoadBalancerReactiveSocketClientTest {
     @Test
     public void testTwoAvailibleConnection() {
 
-        ReactiveSocketClient c1 = Mockito.mock(ReactiveSocketClient.class);
+        DelegatingReactiveSocket c1 = Mockito.mock(DelegatingReactiveSocket.class);
         Mockito.when(c1.availability()).thenReturn(0.5);
         Mockito
             .when(c1.requestResponse(Mockito.any(Payload.class)))
@@ -261,7 +272,7 @@ public class LoadBalancerReactiveSocketClientTest {
                 }
             });
 
-        ReactiveSocketClient c2 = Mockito.mock(ReactiveSocketClient.class);
+        DelegatingReactiveSocket c2 = Mockito.mock(DelegatingReactiveSocket.class);
         Mockito.when(c2.availability()).thenReturn(0.9);
         Mockito
             .when(c2.requestResponse(Mockito.any(Payload.class)))
@@ -284,8 +295,8 @@ public class LoadBalancerReactiveSocketClientTest {
                 }
             });
 
-        LoadBalancerReactiveSocketClient client
-            = new LoadBalancerReactiveSocketClient(new SocketAddressFactory() {
+        LoadBalancerDelegatingReactiveSocket client
+            = new LoadBalancerDelegatingReactiveSocket(new SocketAddressFactory() {
             @Override
             public Publisher<List<SocketAddress>> call() {
                 return new Publisher<List<SocketAddress>>() {
@@ -311,17 +322,22 @@ public class LoadBalancerReactiveSocketClientTest {
                     }
                 };
             }
-        }, new ReactiveSocketClientFactory<SocketAddress>() {
+        }, new ReactiveSocketFactory<SocketAddress, DelegatingReactiveSocket>() {
             @Override
-            public ReactiveSocketClient apply(SocketAddress socketAddress) {
-                InetSocketAddress inetSocketAddress = (InetSocketAddress) socketAddress;
-                if (inetSocketAddress.getHostName().equals("localhost1")) {
-                    return c1;
-                } else {
-                    return c2;
-                }
+            public Publisher<DelegatingReactiveSocket> call(SocketAddress socketAddress) {
+                return s -> {
+                    s.onSubscribe(EmptySubscription.INSTANCE);
+
+                    InetSocketAddress inetSocketAddress = (InetSocketAddress) socketAddress;
+                    if (inetSocketAddress.getHostName().equals("localhost1")) {
+                        s.onNext(c1);
+                    } else {
+                        s.onNext(c2);
+                    }
+                    s.onComplete();
+                };
             }
-        }, new LoadBalancerReactiveSocketClient.NumberGenerator() {
+        }, new LoadBalancerDelegatingReactiveSocket.NumberGenerator() {
             @Override
             public int generateInt() {
                 return XORShiftRandom.getInstance().randomInt();
@@ -353,7 +369,7 @@ public class LoadBalancerReactiveSocketClientTest {
     @Test
     public void testNAvailibleConnectionNoneAvailable() {
 
-        ReactiveSocketClient c1 = Mockito.mock(ReactiveSocketClient.class);
+        DelegatingReactiveSocket c1 = Mockito.mock(DelegatingReactiveSocket.class);
         Mockito.when(c1.availability()).thenReturn(0.0);
         Mockito
             .when(c1.requestResponse(Mockito.any(Payload.class)))
@@ -376,7 +392,7 @@ public class LoadBalancerReactiveSocketClientTest {
                 }
             });
 
-        ReactiveSocketClient c2 = Mockito.mock(ReactiveSocketClient.class);
+        DelegatingReactiveSocket c2 = Mockito.mock(DelegatingReactiveSocket.class);
         Mockito.when(c2.availability()).thenReturn(0.0);
         Mockito
             .when(c2.requestResponse(Mockito.any(Payload.class)))
@@ -399,7 +415,7 @@ public class LoadBalancerReactiveSocketClientTest {
                 }
             });
 
-        ReactiveSocketClient c3 = Mockito.mock(ReactiveSocketClient.class);
+        DelegatingReactiveSocket c3 = Mockito.mock(DelegatingReactiveSocket.class);
         Mockito.when(c3.availability()).thenReturn(0.0);
         Mockito
             .when(c3.requestResponse(Mockito.any(Payload.class)))
@@ -422,7 +438,7 @@ public class LoadBalancerReactiveSocketClientTest {
                 }
             });
 
-        ReactiveSocketClient c4 = Mockito.mock(ReactiveSocketClient.class);
+        DelegatingReactiveSocket c4 = Mockito.mock(DelegatingReactiveSocket.class);
         Mockito.when(c4.availability()).thenReturn(0.0);
         Mockito
             .when(c4.requestResponse(Mockito.any(Payload.class)))
@@ -445,8 +461,8 @@ public class LoadBalancerReactiveSocketClientTest {
                 }
             });
 
-        LoadBalancerReactiveSocketClient client
-            = new LoadBalancerReactiveSocketClient(new SocketAddressFactory() {
+        LoadBalancerDelegatingReactiveSocket client
+            = new LoadBalancerDelegatingReactiveSocket(new SocketAddressFactory() {
             @Override
             public Publisher<List<SocketAddress>> call() {
                 return new Publisher<List<SocketAddress>>() {
@@ -474,21 +490,28 @@ public class LoadBalancerReactiveSocketClientTest {
                     }
                 };
             }
-        }, new ReactiveSocketClientFactory<SocketAddress>() {
+        },
+        new ReactiveSocketFactory<SocketAddress, DelegatingReactiveSocket>() {
             @Override
-            public ReactiveSocketClient apply(SocketAddress socketAddress) {
-                InetSocketAddress inetSocketAddress = (InetSocketAddress) socketAddress;
-                if (inetSocketAddress.getHostName().equals("localhost1")) {
-                    return c1;
-                } else if (inetSocketAddress.getHostName().equals("localhost2")) {
-                    return c2;
-                }  else if (inetSocketAddress.getHostName().equals("localhost3")) {
-                    return c3;
-                }  else {
-                    return c4;
-                }
+            public Publisher<DelegatingReactiveSocket> call(SocketAddress socketAddress) {
+                return s -> {
+                    s.onSubscribe(EmptySubscription.INSTANCE);
+
+                    InetSocketAddress inetSocketAddress = (InetSocketAddress) socketAddress;
+                    if (inetSocketAddress.getHostName().equals("localhost1")) {
+                        s.onNext(c1);
+                    } else if (inetSocketAddress.getHostName().equals("localhost2")) {
+                        s.onNext(c2);
+                    } else if (inetSocketAddress.getHostName().equals("localhost3")) {
+                        s.onNext(c3);
+                    } else {
+                        s.onNext(c4);
+                    }
+                    s.onComplete();
+                };
             }
-        }, new LoadBalancerReactiveSocketClient.NumberGenerator() {
+
+            }, new LoadBalancerDelegatingReactiveSocket.NumberGenerator() {
             @Override
             public int generateInt() {
                 return XORShiftRandom.getInstance().randomInt();
@@ -531,7 +554,7 @@ public class LoadBalancerReactiveSocketClientTest {
             }
         };
 
-        ReactiveSocketClient c1 = Mockito.mock(ReactiveSocketClient.class);
+        DelegatingReactiveSocket c1 = Mockito.mock(DelegatingReactiveSocket.class);
         Mockito.when(c1.availability()).thenReturn(1.0);
         Mockito
             .when(c1.requestResponse(Mockito.any(Payload.class)))
@@ -554,7 +577,7 @@ public class LoadBalancerReactiveSocketClientTest {
                 }
             });
 
-        ReactiveSocketClient c2 = Mockito.mock(ReactiveSocketClient.class);
+        DelegatingReactiveSocket c2 = Mockito.mock(DelegatingReactiveSocket.class);
         Mockito.when(c2.availability()).thenReturn(1.0);
         Mockito
             .when(c2.requestResponse(Mockito.any(Payload.class)))
@@ -611,7 +634,7 @@ public class LoadBalancerReactiveSocketClientTest {
 
         AtomicInteger c1Count = new AtomicInteger();
         AtomicInteger c2Count = new AtomicInteger();
-        ReactiveSocketClient c1 = Mockito.mock(ReactiveSocketClient.class);
+        DelegatingReactiveSocket c1 = Mockito.mock(DelegatingReactiveSocket.class);
         Mockito.when(c1.availability()).thenReturn(0.5);
         Mockito
             .when(c1.requestResponse(Mockito.any(Payload.class)))
@@ -635,7 +658,7 @@ public class LoadBalancerReactiveSocketClientTest {
                 }
             });
 
-        ReactiveSocketClient c2 = Mockito.mock(ReactiveSocketClient.class);
+        DelegatingReactiveSocket c2 = Mockito.mock(DelegatingReactiveSocket.class);
         Mockito.when(c2.availability()).thenReturn(1.0);
         Mockito
             .when(c2.requestResponse(Mockito.any(Payload.class)))
@@ -692,7 +715,7 @@ public class LoadBalancerReactiveSocketClientTest {
 
         AtomicInteger c1Count = new AtomicInteger();
         AtomicInteger c2Count = new AtomicInteger();
-        ReactiveSocketClient c1 = Mockito.mock(ReactiveSocketClient.class);
+        DelegatingReactiveSocket c1 = Mockito.mock(DelegatingReactiveSocket.class);
         Mockito.when(c1.availability()).thenReturn(1.0);
         Mockito
             .when(c1.requestResponse(Mockito.any(Payload.class)))
@@ -716,7 +739,7 @@ public class LoadBalancerReactiveSocketClientTest {
                 }
             });
 
-        ReactiveSocketClient c2 = Mockito.mock(ReactiveSocketClient.class);
+        DelegatingReactiveSocket c2 = Mockito.mock(DelegatingReactiveSocket.class);
         Mockito.when(c2.availability()).thenReturn(0.5);
         Mockito
             .when(c2.requestResponse(Mockito.any(Payload.class)))
@@ -751,9 +774,9 @@ public class LoadBalancerReactiveSocketClientTest {
 
     }
 
-    public void availibleConnections(ReactiveSocketClient c1, ReactiveSocketClient c2, ClosedConnectionsProvider closedConnectionsProvider) {
+    public void availibleConnections(DelegatingReactiveSocket c1, DelegatingReactiveSocket c2, ClosedConnectionsProvider closedConnectionsProvider) {
 
-        ReactiveSocketClient c3 = Mockito.mock(ReactiveSocketClient.class);
+        DelegatingReactiveSocket c3 = Mockito.mock(DelegatingReactiveSocket.class);
         Mockito.when(c3.availability()).thenReturn(1.0);
         Mockito
             .when(c3.requestResponse(Mockito.any(Payload.class)))
@@ -776,7 +799,7 @@ public class LoadBalancerReactiveSocketClientTest {
                 }
             });
 
-        ReactiveSocketClient c4 = Mockito.mock(ReactiveSocketClient.class);
+        DelegatingReactiveSocket c4 = Mockito.mock(DelegatingReactiveSocket.class);
         Mockito.when(c4.availability()).thenReturn(0.0);
         Mockito
             .when(c4.requestResponse(Mockito.any(Payload.class)))
@@ -799,8 +822,8 @@ public class LoadBalancerReactiveSocketClientTest {
                 }
             });
 
-        LoadBalancerReactiveSocketClient client
-            = new LoadBalancerReactiveSocketClient(new SocketAddressFactory() {
+        LoadBalancerDelegatingReactiveSocket client
+            = new LoadBalancerDelegatingReactiveSocket(new SocketAddressFactory() {
             @Override
             public Publisher<List<SocketAddress>> call() {
                 return new Publisher<List<SocketAddress>>() {
@@ -816,21 +839,25 @@ public class LoadBalancerReactiveSocketClientTest {
                     }
                 };
             }
-        }, closedConnectionsProvider, new ReactiveSocketClientFactory<SocketAddress>() {
+        }, closedConnectionsProvider, new ReactiveSocketFactory<SocketAddress, DelegatingReactiveSocket>() {
             @Override
-            public ReactiveSocketClient apply(SocketAddress socketAddress) {
-                InetSocketAddress inetSocketAddress = (InetSocketAddress) socketAddress;
-                if (inetSocketAddress.getHostName().equals("localhost1")) {
-                    return c1;
-                } else if (inetSocketAddress.getHostName().equals("localhost2")) {
-                    return c2;
-                } else if (inetSocketAddress.getHostName().equals("localhost3")) {
-                    return c3;
-                } else {
-                    return c4;
-                }
+            public Publisher<DelegatingReactiveSocket> call(SocketAddress socketAddress) {
+                return s -> {
+                    s.onSubscribe(EmptySubscription.INSTANCE);
+                    InetSocketAddress inetSocketAddress = (InetSocketAddress) socketAddress;
+                    if (inetSocketAddress.getHostName().equals("localhost1")) {
+                        s.onNext(c1);
+                    } else if (inetSocketAddress.getHostName().equals("localhost2")) {
+                        s.onNext(c2);
+                    } else if (inetSocketAddress.getHostName().equals("localhost3")) {
+                        s.onNext(c3);
+                    } else {
+                        s.onNext(c4);
+                    }
+                    s.onComplete();
+                };
             }
-        }, new LoadBalancerReactiveSocketClient.NumberGenerator() {
+        }, new LoadBalancerDelegatingReactiveSocket.NumberGenerator() {
             @Override
             public int generateInt() {
                 return XORShiftRandom.getInstance().randomInt();
