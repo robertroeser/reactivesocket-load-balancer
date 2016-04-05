@@ -82,7 +82,7 @@ public class ServoMetricsDelegatingReactiveSocketTest {
             }
         });
 
-        TestSubscriber subscriber = new TestSubscriber();
+        TestSubscriber<Payload> subscriber = new TestSubscriber<>();
         RxReactiveStreams.toObservable(payloadPublisher).subscribe(subscriber);
         subscriber.awaitTerminalEvent();
         subscriber.assertNoErrors();
@@ -147,7 +147,7 @@ public class ServoMetricsDelegatingReactiveSocketTest {
             }
         });
 
-        TestSubscriber subscriber = new TestSubscriber();
+        TestSubscriber<Payload> subscriber = new TestSubscriber<>();
         RxReactiveStreams.toObservable(payloadPublisher).subscribe(subscriber);
         subscriber.awaitTerminalEvent();
         subscriber.assertError(RuntimeException.class);
@@ -228,7 +228,7 @@ public class ServoMetricsDelegatingReactiveSocketTest {
                 }
             });
 
-            TestSubscriber subscriber = new TestSubscriber();
+            TestSubscriber<Payload> subscriber = new TestSubscriber<>();
             RxReactiveStreams.toObservable(payloadPublisher).subscribe(subscriber);
             subscriber.awaitTerminalEvent();
             subscriber.assertNoErrors();

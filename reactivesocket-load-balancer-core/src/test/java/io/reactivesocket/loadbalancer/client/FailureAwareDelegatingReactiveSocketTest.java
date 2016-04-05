@@ -91,13 +91,13 @@ public class FailureAwareDelegatingReactiveSocketTest {
             }
         });
 
-        TestSubscriber subscriber = new TestSubscriber();
+        TestSubscriber<Payload> subscriber = new TestSubscriber<>();
         RxReactiveStreams.toObservable(payloadPublisher).subscribe(subscriber);
         subscriber.awaitTerminalEvent();
         subscriber.assertCompleted();
         double good = client.availability();
 
-        subscriber = new TestSubscriber();
+        subscriber = new TestSubscriber<>();
         RxReactiveStreams.toObservable(payloadPublisher).subscribe(subscriber);
         subscriber.awaitTerminalEvent();
         subscriber.assertError(RuntimeException.class);
@@ -180,13 +180,13 @@ public class FailureAwareDelegatingReactiveSocketTest {
             }
         });
 
-        TestSubscriber subscriber = new TestSubscriber();
+        TestSubscriber<Payload> subscriber = new TestSubscriber<>();
         RxReactiveStreams.toObservable(payloadPublisher).subscribe(subscriber);
         subscriber.awaitTerminalEvent();
         subscriber.assertCompleted();
         double good = client.availability();
 
-        subscriber = new TestSubscriber();
+        subscriber = new TestSubscriber<>();
         RxReactiveStreams.toObservable(payloadPublisher).subscribe(subscriber);
         subscriber.awaitTerminalEvent();
         subscriber.assertError(RuntimeException.class);

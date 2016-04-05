@@ -152,7 +152,7 @@ public class LoadEstimatorDelegatingReactiveSocketTest {
             }
         });
 
-        TestSubscriber subscriber = new TestSubscriber();
+        TestSubscriber<Payload> subscriber = new TestSubscriber<>();
         RxReactiveStreams.toObservable(payloadPublisher).subscribe(subscriber);
         subscriber.awaitTerminalEvent();
         subscriber.assertCompleted();
@@ -160,7 +160,7 @@ public class LoadEstimatorDelegatingReactiveSocketTest {
         double old = client.availability();
 
         for (int i = 0; i < 0; i++) {
-            subscriber = new TestSubscriber();
+            subscriber = new TestSubscriber<>();
             RxReactiveStreams.toObservable(payloadPublisher).subscribe(subscriber);
             subscriber.awaitTerminalEvent();
             subscriber.assertCompleted();
@@ -245,7 +245,7 @@ public class LoadEstimatorDelegatingReactiveSocketTest {
             }
         });
 
-        TestSubscriber subscriber = new TestSubscriber();
+        TestSubscriber<Payload> subscriber = new TestSubscriber<>();
         RxReactiveStreams.toObservable(payloadPublisher).subscribe(subscriber);
         subscriber.awaitTerminalEvent();
         subscriber.assertCompleted();
@@ -253,7 +253,7 @@ public class LoadEstimatorDelegatingReactiveSocketTest {
         double old = client.availability();
 
         for (int i = 0; i < 5; i++) {
-            subscriber = new TestSubscriber();
+            subscriber = new TestSubscriber<>();
             RxReactiveStreams.toObservable(payloadPublisher).subscribe(subscriber);
             subscriber.awaitTerminalEvent();
             subscriber.assertCompleted();

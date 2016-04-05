@@ -6,7 +6,10 @@ import io.reactivesocket.ReactiveSocketFactory;
 import io.reactivesocket.internal.rx.EmptySubscription;
 import org.junit.Assert;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.Mock;
 import org.mockito.Mockito;
+import org.mockito.runners.MockitoJUnitRunner;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
 import rx.RxReactiveStreams;
@@ -20,14 +23,17 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Created by rroeser on 3/8/16.
- */
+@RunWith(MockitoJUnitRunner.class)
 public class InitializingDelegatingReactiveSocketTest {
+
+    @Mock
+    ReactiveSocket reactiveSocket;
+
+    @Mock
+    ReactiveSocketFactory<SocketAddress, ReactiveSocket> reactiveSocketFactory;
 
     @Test
     public void testInitNewSocketClient() {
-        ReactiveSocket reactiveSocket = Mockito.mock(ReactiveSocket.class);
         Mockito.when(reactiveSocket.availability()).thenReturn(0.5);
 
         Mockito.when(reactiveSocket.requestResponse(Mockito.any(Payload.class))).thenReturn(new Publisher<Payload>() {
@@ -47,8 +53,6 @@ public class InitializingDelegatingReactiveSocketTest {
                 s.onComplete();
             }
         });
-
-        ReactiveSocketFactory reactiveSocketFactory = Mockito.mock(ReactiveSocketFactory.class);
 
         SocketAddress socketAddress = InetSocketAddress.createUnresolved("localhost", 8080);
 
@@ -79,7 +83,7 @@ public class InitializingDelegatingReactiveSocketTest {
             }
         });
 
-        TestSubscriber testSubscriber = new TestSubscriber();
+        TestSubscriber<Payload> testSubscriber = new TestSubscriber<>();
         RxReactiveStreams.toObservable(payloadPublisher).subscribe(testSubscriber);
 
         testSubscriber.awaitTerminalEvent();
@@ -94,7 +98,6 @@ public class InitializingDelegatingReactiveSocketTest {
 
     @Test
     public void testInitNewClientWithExceptionInFactory() {
-        ReactiveSocket reactiveSocket = Mockito.mock(ReactiveSocket.class);
         Mockito.when(reactiveSocket.availability()).thenReturn(0.5);
 
         Mockito.when(reactiveSocket.requestResponse(Mockito.any(Payload.class))).thenReturn(new Publisher<Payload>() {
@@ -114,8 +117,6 @@ public class InitializingDelegatingReactiveSocketTest {
                 s.onComplete();
             }
         });
-
-        ReactiveSocketFactory reactiveSocketFactory = Mockito.mock(ReactiveSocketFactory.class);
 
         SocketAddress socketAddress = InetSocketAddress.createUnresolved("localhost", 8080);
 
@@ -146,7 +147,7 @@ public class InitializingDelegatingReactiveSocketTest {
             }
         });
 
-        TestSubscriber testSubscriber = new TestSubscriber();
+        TestSubscriber<Payload> testSubscriber = new TestSubscriber<>();
         RxReactiveStreams.toObservable(payloadPublisher).doOnError(Throwable::printStackTrace).subscribe(testSubscriber);
 
         testSubscriber.awaitTerminalEvent();
@@ -162,7 +163,6 @@ public class InitializingDelegatingReactiveSocketTest {
 
     @Test
     public void testInitNewClientWithExceptionInReactiveSocket() {
-        ReactiveSocket reactiveSocket = Mockito.mock(ReactiveSocket.class);
         Mockito.when(reactiveSocket.availability()).thenReturn(0.5);
 
         Mockito.when(reactiveSocket.requestResponse(Mockito.any(Payload.class))).thenReturn(new Publisher<Payload>() {
@@ -172,8 +172,6 @@ public class InitializingDelegatingReactiveSocketTest {
                 s.onComplete();
             }
         });
-
-        ReactiveSocketFactory reactiveSocketFactory = Mockito.mock(ReactiveSocketFactory.class);
 
         SocketAddress socketAddress = InetSocketAddress.createUnresolved("localhost", 8080);
 
@@ -204,7 +202,7 @@ public class InitializingDelegatingReactiveSocketTest {
             }
         });
 
-        TestSubscriber testSubscriber = new TestSubscriber();
+        TestSubscriber<Payload> testSubscriber = new TestSubscriber<>();
         RxReactiveStreams.toObservable(payloadPublisher).doOnError(Throwable::printStackTrace).subscribe(testSubscriber);
 
         testSubscriber.awaitTerminalEvent();
@@ -220,7 +218,6 @@ public class InitializingDelegatingReactiveSocketTest {
 
     @Test
     public void testInitNewClientWithExceptionInFactoryAndThenWaitForRetryWindow() throws Exception {
-        ReactiveSocket reactiveSocket = Mockito.mock(ReactiveSocket.class);
         Mockito.when(reactiveSocket.availability()).thenReturn(0.5);
 
         Mockito.when(reactiveSocket.requestResponse(Mockito.any(Payload.class))).thenReturn(new Publisher<Payload>() {
@@ -240,8 +237,6 @@ public class InitializingDelegatingReactiveSocketTest {
                 s.onComplete();
             }
         });
-
-        ReactiveSocketFactory reactiveSocketFactory = Mockito.mock(ReactiveSocketFactory.class);
 
         SocketAddress socketAddress = InetSocketAddress.createUnresolved("localhost", 8080);
 
@@ -272,7 +267,7 @@ public class InitializingDelegatingReactiveSocketTest {
             }
         });
 
-        TestSubscriber testSubscriber = new TestSubscriber();
+        TestSubscriber<Payload> testSubscriber = new TestSubscriber<>();
         RxReactiveStreams.toObservable(payloadPublisher).doOnError(Throwable::printStackTrace).subscribe(testSubscriber);
 
         testSubscriber.awaitTerminalEvent();
@@ -296,7 +291,6 @@ public class InitializingDelegatingReactiveSocketTest {
 
         CountDownLatch latch = new CountDownLatch(2);
 
-        ReactiveSocket reactiveSocket = Mockito.mock(ReactiveSocket.class);
         Mockito.when(reactiveSocket.availability()).thenReturn(0.5);
 
         Mockito.when(reactiveSocket.requestResponse(Mockito.any(Payload.class))).thenReturn(new Publisher<Payload>() {
@@ -317,8 +311,6 @@ public class InitializingDelegatingReactiveSocketTest {
                 s.onComplete();
             }
         });
-
-        ReactiveSocketFactory reactiveSocketFactory = Mockito.mock(ReactiveSocketFactory.class);
 
         SocketAddress socketAddress = InetSocketAddress.createUnresolved("localhost", 8080);
 

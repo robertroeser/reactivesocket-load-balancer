@@ -81,7 +81,7 @@ public class LoadBalancerDelegatingReactiveSocketTest {
             }
         });
 
-        TestSubscriber testSubscriber = new TestSubscriber();
+        TestSubscriber<Payload> testSubscriber = new TestSubscriber<>();
         RxReactiveStreams.toObservable(payloadPublisher).subscribe(testSubscriber);
 
         testSubscriber.awaitTerminalEvent();
@@ -148,7 +148,7 @@ public class LoadBalancerDelegatingReactiveSocketTest {
             }
         });
 
-        TestSubscriber testSubscriber = new TestSubscriber();
+        TestSubscriber<Payload> testSubscriber = new TestSubscriber<>();
         RxReactiveStreams.toObservable(payloadPublisher).subscribe(testSubscriber);
 
         testSubscriber.awaitTerminalEvent();
@@ -237,7 +237,7 @@ public class LoadBalancerDelegatingReactiveSocketTest {
             }
         });
 
-        TestSubscriber testSubscriber = new TestSubscriber();
+        TestSubscriber<Payload> testSubscriber = new TestSubscriber<>();
         RxReactiveStreams.toObservable(payloadPublisher).subscribe(testSubscriber);
 
         testSubscriber.awaitTerminalEvent();
@@ -356,7 +356,7 @@ public class LoadBalancerDelegatingReactiveSocketTest {
             }
         });
 
-        TestSubscriber testSubscriber = new TestSubscriber();
+        TestSubscriber<Payload> testSubscriber = new TestSubscriber<>();
         RxReactiveStreams.toObservable(payloadPublisher).subscribe(testSubscriber);
 
         testSubscriber.awaitTerminalEvent();
@@ -530,7 +530,7 @@ public class LoadBalancerDelegatingReactiveSocketTest {
             }
         });
 
-        TestSubscriber testSubscriber = new TestSubscriber();
+        TestSubscriber<Payload> testSubscriber = new TestSubscriber<>();
         RxReactiveStreams.toObservable(payloadPublisher).subscribe(testSubscriber);
 
         testSubscriber.awaitTerminalEvent();
@@ -876,7 +876,7 @@ public class LoadBalancerDelegatingReactiveSocketTest {
             }
         });
 
-        TestSubscriber testSubscriber = new TestSubscriber();
+        TestSubscriber<Payload> testSubscriber = new TestSubscriber<>();
         RxReactiveStreams.toObservable(payloadPublisher).subscribe(testSubscriber);
 
         testSubscriber.awaitTerminalEvent();
