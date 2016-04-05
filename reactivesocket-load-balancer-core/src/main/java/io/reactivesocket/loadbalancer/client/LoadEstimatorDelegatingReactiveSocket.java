@@ -16,6 +16,7 @@
 package io.reactivesocket.loadbalancer.client;
 
 import io.reactivesocket.Payload;
+import io.reactivesocket.ReactiveSocket;
 import io.reactivesocket.internal.rx.EmptySubscription;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
@@ -32,7 +33,7 @@ public class LoadEstimatorDelegatingReactiveSocket implements DelegatingReactive
     private final long epoch = System.nanoTime();
     private final double tauUp;
     private final double tauDown;
-    private final DelegatingReactiveSocket child;
+    private final ReactiveSocket child;
 
     private volatile long stamp = epoch;  // last timestamp in nanos we observed an rtt
     volatile int pending = 0;     // instantaneous rate
@@ -40,7 +41,7 @@ public class LoadEstimatorDelegatingReactiveSocket implements DelegatingReactive
 
     private AtomicLong count;
 
-    public LoadEstimatorDelegatingReactiveSocket(DelegatingReactiveSocket child,
+    public LoadEstimatorDelegatingReactiveSocket(ReactiveSocket child,
                                                  double tauUp,
                                                  double tauDown) {
         this.child = child;

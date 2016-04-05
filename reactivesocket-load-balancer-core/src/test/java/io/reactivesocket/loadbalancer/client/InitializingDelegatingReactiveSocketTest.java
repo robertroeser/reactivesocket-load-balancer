@@ -80,8 +80,8 @@ public class InitializingDelegatingReactiveSocketTest {
             }
         });
 
-        InitializingDelegatingReactiveSocket initializingReactiveSocketClient
-            = new InitializingDelegatingReactiveSocket(reactiveSocketFactory, socketAddress, 10, TimeUnit.SECONDS, 10, TimeUnit.SECONDS);
+        InitializingDelegatingReactiveSocket<SocketAddress> initializingReactiveSocketClient
+            = new InitializingDelegatingReactiveSocket<>(reactiveSocketFactory, socketAddress, 10, TimeUnit.SECONDS, 10, TimeUnit.SECONDS);
 
         double availability = initializingReactiveSocketClient.availability();
         Assert.assertTrue(1.0 == availability);
@@ -108,7 +108,7 @@ public class InitializingDelegatingReactiveSocketTest {
 
         availability = initializingReactiveSocketClient.availability();
         System.out.println(availability);
-        Assert.assertTrue(1.0 == availability);
+        Assert.assertTrue(0.5 == availability);
     }
 
     @Test
@@ -144,8 +144,8 @@ public class InitializingDelegatingReactiveSocketTest {
             }
         });
 
-        InitializingDelegatingReactiveSocket initializingReactiveSocketClient
-            = new InitializingDelegatingReactiveSocket(reactiveSocketFactory, socketAddress, 10, TimeUnit.SECONDS, 10, TimeUnit.SECONDS);
+        InitializingDelegatingReactiveSocket<SocketAddress> initializingReactiveSocketClient
+            = new InitializingDelegatingReactiveSocket<>(reactiveSocketFactory, socketAddress, 10, TimeUnit.SECONDS, 10, TimeUnit.SECONDS);
 
         double availability = initializingReactiveSocketClient.availability();
         Assert.assertTrue(1.0 == availability);
@@ -199,8 +199,8 @@ public class InitializingDelegatingReactiveSocketTest {
             }
         });
 
-        InitializingDelegatingReactiveSocket initializingReactiveSocketClient
-            = new InitializingDelegatingReactiveSocket(reactiveSocketFactory, socketAddress, 10, TimeUnit.SECONDS, 10, TimeUnit.SECONDS);
+        InitializingDelegatingReactiveSocket<SocketAddress> initializingReactiveSocketClient
+            = new InitializingDelegatingReactiveSocket<>(reactiveSocketFactory, socketAddress, 10, TimeUnit.SECONDS, 10, TimeUnit.SECONDS);
 
         double availability = initializingReactiveSocketClient.availability();
         Assert.assertTrue(1.0 == availability);
@@ -227,7 +227,7 @@ public class InitializingDelegatingReactiveSocketTest {
 
         availability = initializingReactiveSocketClient.availability();
         System.out.println(availability);
-        Assert.assertTrue(1.0 == availability);
+        Assert.assertTrue(0.5 == availability);
 
     }
 
@@ -264,8 +264,8 @@ public class InitializingDelegatingReactiveSocketTest {
             }
         });
 
-        InitializingDelegatingReactiveSocket initializingReactiveSocketClient
-            = new InitializingDelegatingReactiveSocket(reactiveSocketFactory, socketAddress, 10, TimeUnit.SECONDS, 1, TimeUnit.SECONDS);
+        InitializingDelegatingReactiveSocket<SocketAddress> initializingReactiveSocketClient
+            = new InitializingDelegatingReactiveSocket<>(reactiveSocketFactory, socketAddress, 10, TimeUnit.SECONDS, 1, TimeUnit.SECONDS);
 
         double availability = initializingReactiveSocketClient.availability();
         Assert.assertTrue(1.0 == availability);
@@ -338,8 +338,8 @@ public class InitializingDelegatingReactiveSocketTest {
             }
         });
 
-        InitializingDelegatingReactiveSocket initializingReactiveSocketClient
-            = new InitializingDelegatingReactiveSocket(reactiveSocketFactory, socketAddress, 10, TimeUnit.SECONDS, 10, TimeUnit.SECONDS);
+        InitializingDelegatingReactiveSocket<SocketAddress> initializingReactiveSocketClient
+            = new InitializingDelegatingReactiveSocket<>(reactiveSocketFactory, socketAddress, 10, TimeUnit.SECONDS, 10, TimeUnit.SECONDS);
 
         initializingReactiveSocketClient.guard.tryAcquire();
 

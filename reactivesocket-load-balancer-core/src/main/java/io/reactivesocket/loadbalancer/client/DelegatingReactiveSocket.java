@@ -71,7 +71,7 @@ public interface DelegatingReactiveSocket extends ReactiveSocket {
      * @param client the reactivesocket client to delegate too
      * @param payload the payload that is being sent
      */
-    default void delegateRequestResponse(Subscriber<? super Payload> subscriber, DelegatingReactiveSocket client, Payload payload) {
+    default void delegateRequestResponse(Subscriber<? super Payload> subscriber, ReactiveSocket client, Payload payload) {
         subscriber.onSubscribe(EmptySubscription.INSTANCE);
         client
             .requestResponse(payload)
@@ -98,7 +98,7 @@ public interface DelegatingReactiveSocket extends ReactiveSocket {
             });
     }
 
-    default void delegateRequestSubscription(Subscriber<? super Payload> subscriber, DelegatingReactiveSocket client, Payload payload) {
+    default void delegateRequestSubscription(Subscriber<? super Payload> subscriber, ReactiveSocket client, Payload payload) {
         subscriber.onSubscribe(EmptySubscription.INSTANCE);
         client.requestSubscription(payload).subscribe(new Subscriber<Payload>() {
             Subscription subscription;
@@ -133,7 +133,7 @@ public interface DelegatingReactiveSocket extends ReactiveSocket {
      * @param client the reactivesocket client to delegate too
      * @param payload the payload that is being sent
      */
-    default void delegateRequestResponse(Subscriber<? super Payload> subscriber, DelegatingReactiveSocket client, Payload payload, Runnable doOnComplete) {
+    default void delegateRequestResponse(Subscriber<? super Payload> subscriber, ReactiveSocket client, Payload payload, Runnable doOnComplete) {
         subscriber.onSubscribe(EmptySubscription.INSTANCE);
         client
             .requestResponse(payload)
@@ -168,7 +168,7 @@ public interface DelegatingReactiveSocket extends ReactiveSocket {
      * @param client the reactivesocket client to delegate too
      * @param payload the payload that is being sent
      */
-    default void delegateRequestResponse(Subscriber<? super Payload> subscriber, DelegatingReactiveSocket client, Payload payload, Runnable doOnComplete, Runnable doOnError) {
+    default void delegateRequestResponse(Subscriber<? super Payload> subscriber, ReactiveSocket client, Payload payload, Runnable doOnComplete, Runnable doOnError) {
         subscriber.onSubscribe(EmptySubscription.INSTANCE);
         client
             .requestResponse(payload)

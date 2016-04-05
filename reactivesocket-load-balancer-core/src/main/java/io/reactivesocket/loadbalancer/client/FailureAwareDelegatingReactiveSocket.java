@@ -16,6 +16,7 @@
 package io.reactivesocket.loadbalancer.client;
 
 import io.reactivesocket.Payload;
+import io.reactivesocket.ReactiveSocket;
 import io.reactivesocket.internal.rx.EmptySubscription;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
@@ -27,14 +28,14 @@ import java.util.concurrent.TimeUnit;
  * ReactiveSocketClient that keeps track of successes and failures and uses them to compute availability.
  */
 public class FailureAwareDelegatingReactiveSocket implements DelegatingReactiveSocket {
-    private final DelegatingReactiveSocket child;
+    private final ReactiveSocket child;
     private final long epoch = System.nanoTime();
     private final double tau;
 
     private long stamp = epoch;
     private volatile double ewmaErrorPercentage = 1.0; // 1.0 = 100% success, 0.0 = 0% successes
 
-    public FailureAwareDelegatingReactiveSocket(DelegatingReactiveSocket child, long window, TimeUnit unit) {
+    public FailureAwareDelegatingReactiveSocket(ReactiveSocket child, long window, TimeUnit unit) {
         this.child = child;
         this.tau = unit.toNanos(window);
     }

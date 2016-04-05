@@ -20,7 +20,6 @@ import io.reactivesocket.ReactiveSocket;
 import io.reactivesocket.ReactiveSocketFactory;
 import io.reactivesocket.internal.rx.EmptySubscription;
 import io.reactivesocket.loadbalancer.XORShiftRandom;
-import io.reactivesocket.loadbalancer.client.DelegatingReactiveSocket;
 import io.reactivesocket.loadbalancer.client.FailureAwareDelegatingReactiveSocket;
 import io.reactivesocket.loadbalancer.client.InitializingDelegatingReactiveSocket;
 import io.reactivesocket.loadbalancer.client.LoadBalancerDelegatingReactiveSocket;
@@ -28,13 +27,14 @@ import io.reactivesocket.loadbalancer.client.LoadEstimatorDelegatingReactiveSock
 import io.reactivesocket.loadbalancer.servo.ServoMetricsDelegatingReactiveSocket;
 import org.reactivestreams.Publisher;
 
+import java.net.SocketAddress;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Implementation of {@link ReactiveSocketFactory} that creates {@link DelegatingReactiveSocket}s that use a
+ * Implementation of {@link ReactiveSocketFactory} that creates {@link ReactiveSocket}s that use a
  * {@link EurekaReactiveSocketClientFactory} to look instances to talk to.
  */
-public class EurekaReactiveSocketClientFactory<T, R extends ReactiveSocket> implements ReactiveSocketFactory<EurekaReactiveSocketClientFactory.EurekaReactiveSocketClientFactoryConfig<T, R>, ReactiveSocket> {
+public class EurekaReactiveSocketClientFactory implements ReactiveSocketFactory<EurekaReactiveSocketClientFactory.EurekaReactiveSocketClientFactoryConfig, ReactiveSocket> {
 
     private DiscoveryClient discoveryClient;
 
@@ -43,7 +43,7 @@ public class EurekaReactiveSocketClientFactory<T, R extends ReactiveSocket> impl
     }
 
     @Override
-    public Publisher<ReactiveSocket> call(EurekaReactiveSocketClientFactoryConfig<T, R> config) {
+    public Publisher<ReactiveSocket> call(EurekaReactiveSocketClientFactoryConfig config) {
         return s -> {
             EurekaSocketAddressFactory addressFactory = new EurekaSocketAddressFactory(
                 discoveryClient,
@@ -55,8 +55,8 @@ public class EurekaReactiveSocketClientFactory<T, R extends ReactiveSocket> impl
                 addressFactory,
                 addressFactory.getClosedConnectionProvider(),
                 socketAddress -> {
-                    InitializingDelegatingReactiveSocket initializingReactiveSocketClient
-                        = new InitializingDelegatingReactiveSocket(
+                    InitializingDelegatingReactiveSocket<SocketAddress> initializingReactiveSocketClient
+                        = new InitializingDelegatingReactiveSocket<>(
                         config.reactiveSocketFactory,
                         socketAddress,
                         config.connectionFailureTimeout,
@@ -83,11 +83,11 @@ public class EurekaReactiveSocketClientFactory<T, R extends ReactiveSocket> impl
         };
     }
 
-    public static class EurekaReactiveSocketClientFactoryConfig<T, R extends ReactiveSocket> {
+    public static class EurekaReactiveSocketClientFactoryConfig {
         boolean secure;
         int poolsize;
         String vip;
-        ReactiveSocketFactory<T, R> reactiveSocketFactory;
+        ReactiveSocketFactory<SocketAddress, ? extends ReactiveSocket> reactiveSocketFactory;
         long connectionFailureTimeout;
         TimeUnit connectionFailureTimeoutTimeUnit;
         long connectionFailureRetryWindow;
@@ -100,7 +100,7 @@ public class EurekaReactiveSocketClientFactory<T, R extends ReactiveSocket> impl
         public EurekaReactiveSocketClientFactoryConfig(String vip,
                                                        boolean secure,
                                                        int poolsize,
-                                                       ReactiveSocketFactory<T, R> reactiveSocketFactory,
+                                                       ReactiveSocketFactory<SocketAddress, ? extends ReactiveSocket> reactiveSocketFactory,
                                                        long connectionFailureTimeout, 
                                                        TimeUnit connectionFailureTimeoutTimeUnit, 
                                                        long connectionFailureRetryWindow, 
@@ -123,11 +123,11 @@ public class EurekaReactiveSocketClientFactory<T, R extends ReactiveSocket> impl
             this.failureWindowUnit = failureWindowUnit;
         }
 
-        public static <T, R extends ReactiveSocket> EurekaReactiveSocketClientFactoryConfig<T, R> newInstance(
+        public static EurekaReactiveSocketClientFactoryConfig newInstance(
             String vip,
             int poolsize,
-            ReactiveSocketFactory<T, R> reactiveSocketFactory) {
-            return new EurekaReactiveSocketClientFactoryConfig<>(
+            ReactiveSocketFactory<SocketAddress, ? extends ReactiveSocket> reactiveSocketFactory) {
+            return new EurekaReactiveSocketClientFactoryConfig(
                 vip,
                 false,
                 poolsize,
@@ -154,7 +154,7 @@ public class EurekaReactiveSocketClientFactory<T, R extends ReactiveSocket> impl
             return vip;
         }
 
-        public ReactiveSocketFactory<T, R> getReactiveSocketFactory() {
+        public ReactiveSocketFactory<SocketAddress, ? extends ReactiveSocket> getReactiveSocketFactory() {
             return reactiveSocketFactory;
         }
 
@@ -191,62 +191,62 @@ public class EurekaReactiveSocketClientFactory<T, R extends ReactiveSocket> impl
         }
 
 
-        public EurekaReactiveSocketClientFactoryConfig<T, R> secure(boolean secure) {
+        public EurekaReactiveSocketClientFactoryConfig secure(boolean secure) {
             this.secure = secure;
             return this;
         }
 
-        public EurekaReactiveSocketClientFactoryConfig<T, R> poolsize(int poolsize) {
+        public EurekaReactiveSocketClientFactoryConfig poolsize(int poolsize) {
             this.poolsize = poolsize;
             return this;
         }
 
-        public EurekaReactiveSocketClientFactoryConfig<T, R> vip(String vip) {
+        public EurekaReactiveSocketClientFactoryConfig vip(String vip) {
             this.vip = vip;
             return this;
         }
 
-        public EurekaReactiveSocketClientFactoryConfig<T, R> reactiveSocketFactory(ReactiveSocketFactory<T, R> reactiveSocketFactory) {
+        public EurekaReactiveSocketClientFactoryConfig reactiveSocketFactory(ReactiveSocketFactory<SocketAddress, ? extends ReactiveSocket> reactiveSocketFactory) {
             this.reactiveSocketFactory = reactiveSocketFactory;
             return this;
         }
 
-        public EurekaReactiveSocketClientFactoryConfig<T, R> connectionFailureTimeout(long connectionFailureTimeout) {
+        public EurekaReactiveSocketClientFactoryConfig connectionFailureTimeout(long connectionFailureTimeout) {
             this.connectionFailureTimeout = connectionFailureTimeout;
             return this;
         }
 
-        public EurekaReactiveSocketClientFactoryConfig<T, R> connectionFailureTimeoutTimeUnit(TimeUnit connectionFailureTimeoutTimeUnit) {
+        public EurekaReactiveSocketClientFactoryConfig connectionFailureTimeoutTimeUnit(TimeUnit connectionFailureTimeoutTimeUnit) {
             this.connectionFailureTimeoutTimeUnit = connectionFailureTimeoutTimeUnit;
             return this;
         }
 
-        public EurekaReactiveSocketClientFactoryConfig<T, R> connectionFailureRetryWindow(long connectionFailureRetryWindow) {
+        public EurekaReactiveSocketClientFactoryConfig connectionFailureRetryWindow(long connectionFailureRetryWindow) {
             this.connectionFailureRetryWindow = connectionFailureRetryWindow;
             return this;
         }
 
-        public EurekaReactiveSocketClientFactoryConfig<T, R> retryWindowUnit(TimeUnit retryWindowUnit) {
+        public EurekaReactiveSocketClientFactoryConfig retryWindowUnit(TimeUnit retryWindowUnit) {
             this.retryWindowUnit = retryWindowUnit;
             return this;
         }
 
-        public EurekaReactiveSocketClientFactoryConfig<T, R> tauUp(double tauUp) {
+        public EurekaReactiveSocketClientFactoryConfig tauUp(double tauUp) {
             this.tauUp = tauUp;
             return this;
         }
 
-        public EurekaReactiveSocketClientFactoryConfig<T, R> tauDown(double tauDown) {
+        public EurekaReactiveSocketClientFactoryConfig tauDown(double tauDown) {
             this.tauDown = tauDown;
             return this;
         }
 
-        public EurekaReactiveSocketClientFactoryConfig<T, R> failureWindow(long failureWindow) {
+        public EurekaReactiveSocketClientFactoryConfig failureWindow(long failureWindow) {
             this.failureWindow = failureWindow;
             return this;
         }
 
-        public EurekaReactiveSocketClientFactoryConfig<T, R> failureWindowUnit(TimeUnit failureWindowUnit) {
+        public EurekaReactiveSocketClientFactoryConfig failureWindowUnit(TimeUnit failureWindowUnit) {
             this.failureWindowUnit = failureWindowUnit;
             return this;
         }

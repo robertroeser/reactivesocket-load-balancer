@@ -16,6 +16,7 @@
 package io.reactivesocket.loadbalancer.servo;
 
 import io.reactivesocket.Payload;
+import io.reactivesocket.ReactiveSocket;
 import io.reactivesocket.internal.rx.EmptySubscription;
 import io.reactivesocket.loadbalancer.client.DelegatingReactiveSocket;
 import io.reactivesocket.loadbalancer.servo.internal.HdrHistogramServoTimer;
@@ -25,10 +26,10 @@ import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
 
 /**
- * An implementation of {@link DelegatingReactiveSocket} that sends metrics to Servo
+ * An implementation of {@link ReactiveSocket} that sends metrics to Servo
  */
 public class ServoMetricsDelegatingReactiveSocket implements DelegatingReactiveSocket {
-    private final DelegatingReactiveSocket child;
+    private final ReactiveSocket child;
 
     private final String prefix;
 
@@ -38,7 +39,7 @@ public class ServoMetricsDelegatingReactiveSocket implements DelegatingReactiveS
 
     final HdrHistogramServoTimer timer;
 
-    public ServoMetricsDelegatingReactiveSocket(DelegatingReactiveSocket child, String prefix) {
+    public ServoMetricsDelegatingReactiveSocket(ReactiveSocket child, String prefix) {
         this.child = child;
         this.prefix = prefix;
 
