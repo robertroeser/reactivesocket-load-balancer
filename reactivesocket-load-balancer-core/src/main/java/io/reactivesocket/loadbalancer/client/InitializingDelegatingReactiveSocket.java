@@ -1,3 +1,18 @@
+/**
+ * Copyright 2016 Netflix, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package io.reactivesocket.loadbalancer.client;
 
 import io.reactivesocket.Payload;
@@ -9,7 +24,6 @@ import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
 
-import java.net.SocketAddress;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
@@ -17,9 +31,9 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
-public class InitializingDelegatingReactiveSocket implements DelegatingReactiveSocket {
-    private final ReactiveSocketFactory reactiveSocketFactory;
-    private final SocketAddress socketAddress;
+public class InitializingDelegatingReactiveSocket<T> implements DelegatingReactiveSocket {
+    private final ReactiveSocketFactory<T, ? extends ReactiveSocket> reactiveSocketFactory;
+    private final T configuration;
 
     private final long connectionFailureRetryWindow;
     private final TimeUnit retryWindowUnit;
@@ -30,23 +44,23 @@ public class InitializingDelegatingReactiveSocket implements DelegatingReactiveS
     //Visible for testing
     final Semaphore guard;
     final List<Completable> awaitingReactiveSocket;
-    
-    private volatile  ReactiveSocket reactiveSocket;
-    
+
+    private volatile ReactiveSocket reactiveSocket;
+
     private volatile long connectionFailureTimestamp = 0;
 
     private final ScheduledExecutorService scheduledExecutorService;
 
     public InitializingDelegatingReactiveSocket(
-        ReactiveSocketFactory reactiveSocketFactory,
-        SocketAddress socketAddress,
+        ReactiveSocketFactory<T, ? extends ReactiveSocket> reactiveSocketFactory,
+        T configuration,
         long timeout,
         TimeUnit timeoutTimeUnit,
         long connectionFailureRetryWindow,
         TimeUnit retryWindowUnit) {
         this(
             reactiveSocketFactory,
-            socketAddress,
+            configuration,
             timeout,
             timeoutTimeUnit,
             connectionFailureRetryWindow,
@@ -55,15 +69,15 @@ public class InitializingDelegatingReactiveSocket implements DelegatingReactiveS
     }
 
     public InitializingDelegatingReactiveSocket(
-        ReactiveSocketFactory reactiveSocketFactory,
-        SocketAddress socketAddress, 
+        ReactiveSocketFactory<T, ? extends ReactiveSocket> reactiveSocketFactory,
+        T configuration,
         long timeout, 
         TimeUnit timeoutTimeUnit,
         long connectionFailureRetryWindow,
         TimeUnit retryWindowUnit,
         ScheduledExecutorService scheduledExecutorService) {
         this.reactiveSocketFactory = reactiveSocketFactory;
-        this.socketAddress = socketAddress;
+        this.configuration = configuration;
         this.timeout = timeout;
         this.unit = timeoutTimeUnit;
         this.guard = new Semaphore(1);
@@ -88,10 +102,10 @@ public class InitializingDelegatingReactiveSocket implements DelegatingReactiveS
         return availability;
     }
 
-    <T> Publisher<T> init(Action action) {
+    <X> Publisher<X> init(Action<X> action) {
         if (guard.tryAcquire()) {
-            Publisher<ReactiveSocket> reactiveSocketPublisher
-                = reactiveSocketFactory.call(socketAddress, timeout, unit, scheduledExecutorService);
+            Publisher<? extends ReactiveSocket> reactiveSocketPublisher
+                = reactiveSocketFactory.call(configuration, timeout, unit, scheduledExecutorService);
 
             return s -> {
                 s.onSubscribe(EmptySubscription.INSTANCE);
@@ -103,8 +117,9 @@ public class InitializingDelegatingReactiveSocket implements DelegatingReactiveS
                         }
 
                         @Override
-                        public void onNext(ReactiveSocket rSocket) {
-                            action.call(s, rSocket);
+                        public void onNext(ReactiveSocket r) {
+                            reactiveSocket = r;
+                            action.call(s, r);
                         }
 
                         @Override
@@ -172,8 +187,7 @@ public class InitializingDelegatingReactiveSocket implements DelegatingReactiveS
                     }
                 }));
         } else {
-            return reactiveSocket
-                .requestResponse(payload);
+            return reactiveSocket.requestResponse(payload);
         }
     }
 
@@ -239,7 +253,7 @@ public class InitializingDelegatingReactiveSocket implements DelegatingReactiveS
                     }
                 }));
         } else {
-            return reactiveSocket.requestSubscription(payload);
+            return reactiveSocket.requestStream(payload);
         }
     }
 
@@ -301,7 +315,7 @@ public class InitializingDelegatingReactiveSocket implements DelegatingReactiveS
                     }
                 }));
         } else {
-            return reactiveSocket.fireAndForget(payload);
+            return reactiveSocket.metadataPush(payload);
         }
     }
 
@@ -316,5 +330,4 @@ public class InitializingDelegatingReactiveSocket implements DelegatingReactiveS
             reactiveSocket.close();
         }
     }
-
 }

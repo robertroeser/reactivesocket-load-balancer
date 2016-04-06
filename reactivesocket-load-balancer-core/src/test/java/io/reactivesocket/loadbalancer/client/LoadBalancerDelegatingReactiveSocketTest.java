@@ -1,6 +1,22 @@
+/**
+ * Copyright 2016 Netflix, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package io.reactivesocket.loadbalancer.client;
 
 import io.reactivesocket.Payload;
+import io.reactivesocket.ReactiveSocket;
 import io.reactivesocket.ReactiveSocketFactory;
 import io.reactivesocket.internal.rx.EmptySubscription;
 import io.reactivesocket.loadbalancer.ClosedConnectionsProvider;
@@ -52,14 +68,14 @@ public class LoadBalancerDelegatingReactiveSocketTest {
                     }
                 };
             }
-        }, new ReactiveSocketFactory<SocketAddress, DelegatingReactiveSocket>() {
+        }, new ReactiveSocketFactory<SocketAddress, ReactiveSocket>() {
             @Override
-            public DelegatingReactiveSocket callAndWait(SocketAddress socketAddress) {
+            public ReactiveSocket callAndWait(SocketAddress socketAddress) {
                 return null;
             }
 
             @Override
-            public Publisher<DelegatingReactiveSocket> call(SocketAddress socketAddress) {
+            public Publisher<ReactiveSocket> call(SocketAddress socketAddress) {
                 return null;
             }
         }, new LoadBalancerDelegatingReactiveSocket.NumberGenerator() {
@@ -81,7 +97,7 @@ public class LoadBalancerDelegatingReactiveSocketTest {
             }
         });
 
-        TestSubscriber testSubscriber = new TestSubscriber();
+        TestSubscriber<Payload> testSubscriber = new TestSubscriber<>();
         RxReactiveStreams.toObservable(payloadPublisher).subscribe(testSubscriber);
 
         testSubscriber.awaitTerminalEvent();
@@ -91,7 +107,7 @@ public class LoadBalancerDelegatingReactiveSocketTest {
     @Test
     public void testNoConnectionsAvailableWithZeroAvailibility() {
 
-        DelegatingReactiveSocket c = Mockito.mock(DelegatingReactiveSocket.class);
+        ReactiveSocket c = Mockito.mock(ReactiveSocket.class);
         Mockito.when(c.availability()).thenReturn(0.0);
 
         LoadBalancerDelegatingReactiveSocket client
@@ -120,9 +136,9 @@ public class LoadBalancerDelegatingReactiveSocketTest {
                     }
                 };
             }
-        }, new ReactiveSocketFactory<SocketAddress, DelegatingReactiveSocket>() {
+        }, new ReactiveSocketFactory<SocketAddress, ReactiveSocket>() {
             @Override
-            public Publisher<DelegatingReactiveSocket> call(SocketAddress socketAddress) {
+            public Publisher<ReactiveSocket> call(SocketAddress socketAddress) {
                 return s -> {
                     s.onSubscribe(EmptySubscription.INSTANCE);
                     s.onNext(c);
@@ -148,7 +164,7 @@ public class LoadBalancerDelegatingReactiveSocketTest {
             }
         });
 
-        TestSubscriber testSubscriber = new TestSubscriber();
+        TestSubscriber<Payload> testSubscriber = new TestSubscriber<>();
         RxReactiveStreams.toObservable(payloadPublisher).subscribe(testSubscriber);
 
         testSubscriber.awaitTerminalEvent();
@@ -160,7 +176,7 @@ public class LoadBalancerDelegatingReactiveSocketTest {
     @Test
     public void testOneAvailibleConnection() {
 
-        DelegatingReactiveSocket c = Mockito.mock(DelegatingReactiveSocket.class);
+        ReactiveSocket c = Mockito.mock(ReactiveSocket.class);
         Mockito.when(c.availability()).thenReturn(1.0);
         Mockito
             .when(c.requestResponse(Mockito.any(Payload.class)))
@@ -209,9 +225,9 @@ public class LoadBalancerDelegatingReactiveSocketTest {
                     }
                 };
             }
-        }, new ReactiveSocketFactory<SocketAddress, DelegatingReactiveSocket>() {
+        }, new ReactiveSocketFactory<SocketAddress, ReactiveSocket>() {
             @Override
-            public Publisher<DelegatingReactiveSocket> call(SocketAddress socketAddress) {
+            public Publisher<ReactiveSocket> call(SocketAddress socketAddress) {
                 return s -> {
                     s.onSubscribe(EmptySubscription.INSTANCE);
                     s.onNext(c);
@@ -237,7 +253,7 @@ public class LoadBalancerDelegatingReactiveSocketTest {
             }
         });
 
-        TestSubscriber testSubscriber = new TestSubscriber();
+        TestSubscriber<Payload> testSubscriber = new TestSubscriber<>();
         RxReactiveStreams.toObservable(payloadPublisher).subscribe(testSubscriber);
 
         testSubscriber.awaitTerminalEvent();
@@ -249,7 +265,7 @@ public class LoadBalancerDelegatingReactiveSocketTest {
     @Test
     public void testTwoAvailibleConnection() {
 
-        DelegatingReactiveSocket c1 = Mockito.mock(DelegatingReactiveSocket.class);
+        ReactiveSocket c1 = Mockito.mock(ReactiveSocket.class);
         Mockito.when(c1.availability()).thenReturn(0.5);
         Mockito
             .when(c1.requestResponse(Mockito.any(Payload.class)))
@@ -272,7 +288,7 @@ public class LoadBalancerDelegatingReactiveSocketTest {
                 }
             });
 
-        DelegatingReactiveSocket c2 = Mockito.mock(DelegatingReactiveSocket.class);
+        ReactiveSocket c2 = Mockito.mock(ReactiveSocket.class);
         Mockito.when(c2.availability()).thenReturn(0.9);
         Mockito
             .when(c2.requestResponse(Mockito.any(Payload.class)))
@@ -322,9 +338,9 @@ public class LoadBalancerDelegatingReactiveSocketTest {
                     }
                 };
             }
-        }, new ReactiveSocketFactory<SocketAddress, DelegatingReactiveSocket>() {
+        }, new ReactiveSocketFactory<SocketAddress, ReactiveSocket>() {
             @Override
-            public Publisher<DelegatingReactiveSocket> call(SocketAddress socketAddress) {
+            public Publisher<ReactiveSocket> call(SocketAddress socketAddress) {
                 return s -> {
                     s.onSubscribe(EmptySubscription.INSTANCE);
 
@@ -356,7 +372,7 @@ public class LoadBalancerDelegatingReactiveSocketTest {
             }
         });
 
-        TestSubscriber testSubscriber = new TestSubscriber();
+        TestSubscriber<Payload> testSubscriber = new TestSubscriber<>();
         RxReactiveStreams.toObservable(payloadPublisher).subscribe(testSubscriber);
 
         testSubscriber.awaitTerminalEvent();
@@ -369,7 +385,7 @@ public class LoadBalancerDelegatingReactiveSocketTest {
     @Test
     public void testNAvailibleConnectionNoneAvailable() {
 
-        DelegatingReactiveSocket c1 = Mockito.mock(DelegatingReactiveSocket.class);
+        ReactiveSocket c1 = Mockito.mock(ReactiveSocket.class);
         Mockito.when(c1.availability()).thenReturn(0.0);
         Mockito
             .when(c1.requestResponse(Mockito.any(Payload.class)))
@@ -392,7 +408,7 @@ public class LoadBalancerDelegatingReactiveSocketTest {
                 }
             });
 
-        DelegatingReactiveSocket c2 = Mockito.mock(DelegatingReactiveSocket.class);
+        ReactiveSocket c2 = Mockito.mock(ReactiveSocket.class);
         Mockito.when(c2.availability()).thenReturn(0.0);
         Mockito
             .when(c2.requestResponse(Mockito.any(Payload.class)))
@@ -415,7 +431,7 @@ public class LoadBalancerDelegatingReactiveSocketTest {
                 }
             });
 
-        DelegatingReactiveSocket c3 = Mockito.mock(DelegatingReactiveSocket.class);
+        ReactiveSocket c3 = Mockito.mock(ReactiveSocket.class);
         Mockito.when(c3.availability()).thenReturn(0.0);
         Mockito
             .when(c3.requestResponse(Mockito.any(Payload.class)))
@@ -438,7 +454,7 @@ public class LoadBalancerDelegatingReactiveSocketTest {
                 }
             });
 
-        DelegatingReactiveSocket c4 = Mockito.mock(DelegatingReactiveSocket.class);
+        ReactiveSocket c4 = Mockito.mock(ReactiveSocket.class);
         Mockito.when(c4.availability()).thenReturn(0.0);
         Mockito
             .when(c4.requestResponse(Mockito.any(Payload.class)))
@@ -491,9 +507,9 @@ public class LoadBalancerDelegatingReactiveSocketTest {
                 };
             }
         },
-        new ReactiveSocketFactory<SocketAddress, DelegatingReactiveSocket>() {
+        new ReactiveSocketFactory<SocketAddress, ReactiveSocket>() {
             @Override
-            public Publisher<DelegatingReactiveSocket> call(SocketAddress socketAddress) {
+            public Publisher<ReactiveSocket> call(SocketAddress socketAddress) {
                 return s -> {
                     s.onSubscribe(EmptySubscription.INSTANCE);
 
@@ -530,7 +546,7 @@ public class LoadBalancerDelegatingReactiveSocketTest {
             }
         });
 
-        TestSubscriber testSubscriber = new TestSubscriber();
+        TestSubscriber<Payload> testSubscriber = new TestSubscriber<>();
         RxReactiveStreams.toObservable(payloadPublisher).subscribe(testSubscriber);
 
         testSubscriber.awaitTerminalEvent();
@@ -554,7 +570,7 @@ public class LoadBalancerDelegatingReactiveSocketTest {
             }
         };
 
-        DelegatingReactiveSocket c1 = Mockito.mock(DelegatingReactiveSocket.class);
+        ReactiveSocket c1 = Mockito.mock(ReactiveSocket.class);
         Mockito.when(c1.availability()).thenReturn(1.0);
         Mockito
             .when(c1.requestResponse(Mockito.any(Payload.class)))
@@ -577,7 +593,7 @@ public class LoadBalancerDelegatingReactiveSocketTest {
                 }
             });
 
-        DelegatingReactiveSocket c2 = Mockito.mock(DelegatingReactiveSocket.class);
+        ReactiveSocket c2 = Mockito.mock(ReactiveSocket.class);
         Mockito.when(c2.availability()).thenReturn(1.0);
         Mockito
             .when(c2.requestResponse(Mockito.any(Payload.class)))
@@ -634,7 +650,7 @@ public class LoadBalancerDelegatingReactiveSocketTest {
 
         AtomicInteger c1Count = new AtomicInteger();
         AtomicInteger c2Count = new AtomicInteger();
-        DelegatingReactiveSocket c1 = Mockito.mock(DelegatingReactiveSocket.class);
+        ReactiveSocket c1 = Mockito.mock(ReactiveSocket.class);
         Mockito.when(c1.availability()).thenReturn(0.5);
         Mockito
             .when(c1.requestResponse(Mockito.any(Payload.class)))
@@ -658,7 +674,7 @@ public class LoadBalancerDelegatingReactiveSocketTest {
                 }
             });
 
-        DelegatingReactiveSocket c2 = Mockito.mock(DelegatingReactiveSocket.class);
+        ReactiveSocket c2 = Mockito.mock(ReactiveSocket.class);
         Mockito.when(c2.availability()).thenReturn(1.0);
         Mockito
             .when(c2.requestResponse(Mockito.any(Payload.class)))
@@ -715,7 +731,7 @@ public class LoadBalancerDelegatingReactiveSocketTest {
 
         AtomicInteger c1Count = new AtomicInteger();
         AtomicInteger c2Count = new AtomicInteger();
-        DelegatingReactiveSocket c1 = Mockito.mock(DelegatingReactiveSocket.class);
+        ReactiveSocket c1 = Mockito.mock(ReactiveSocket.class);
         Mockito.when(c1.availability()).thenReturn(1.0);
         Mockito
             .when(c1.requestResponse(Mockito.any(Payload.class)))
@@ -739,7 +755,7 @@ public class LoadBalancerDelegatingReactiveSocketTest {
                 }
             });
 
-        DelegatingReactiveSocket c2 = Mockito.mock(DelegatingReactiveSocket.class);
+        ReactiveSocket c2 = Mockito.mock(ReactiveSocket.class);
         Mockito.when(c2.availability()).thenReturn(0.5);
         Mockito
             .when(c2.requestResponse(Mockito.any(Payload.class)))
@@ -774,9 +790,9 @@ public class LoadBalancerDelegatingReactiveSocketTest {
 
     }
 
-    public void availibleConnections(DelegatingReactiveSocket c1, DelegatingReactiveSocket c2, ClosedConnectionsProvider closedConnectionsProvider) {
+    public void availibleConnections(ReactiveSocket c1, ReactiveSocket c2, ClosedConnectionsProvider closedConnectionsProvider) {
 
-        DelegatingReactiveSocket c3 = Mockito.mock(DelegatingReactiveSocket.class);
+        ReactiveSocket c3 = Mockito.mock(ReactiveSocket.class);
         Mockito.when(c3.availability()).thenReturn(1.0);
         Mockito
             .when(c3.requestResponse(Mockito.any(Payload.class)))
@@ -799,7 +815,7 @@ public class LoadBalancerDelegatingReactiveSocketTest {
                 }
             });
 
-        DelegatingReactiveSocket c4 = Mockito.mock(DelegatingReactiveSocket.class);
+        ReactiveSocket c4 = Mockito.mock(ReactiveSocket.class);
         Mockito.when(c4.availability()).thenReturn(0.0);
         Mockito
             .when(c4.requestResponse(Mockito.any(Payload.class)))
@@ -839,9 +855,9 @@ public class LoadBalancerDelegatingReactiveSocketTest {
                     }
                 };
             }
-        }, closedConnectionsProvider, new ReactiveSocketFactory<SocketAddress, DelegatingReactiveSocket>() {
+        }, closedConnectionsProvider, new ReactiveSocketFactory<SocketAddress, ReactiveSocket>() {
             @Override
-            public Publisher<DelegatingReactiveSocket> call(SocketAddress socketAddress) {
+            public Publisher<ReactiveSocket> call(SocketAddress socketAddress) {
                 return s -> {
                     s.onSubscribe(EmptySubscription.INSTANCE);
                     InetSocketAddress inetSocketAddress = (InetSocketAddress) socketAddress;
@@ -876,7 +892,7 @@ public class LoadBalancerDelegatingReactiveSocketTest {
             }
         });
 
-        TestSubscriber testSubscriber = new TestSubscriber();
+        TestSubscriber<Payload> testSubscriber = new TestSubscriber<>();
         RxReactiveStreams.toObservable(payloadPublisher).subscribe(testSubscriber);
 
         testSubscriber.awaitTerminalEvent();

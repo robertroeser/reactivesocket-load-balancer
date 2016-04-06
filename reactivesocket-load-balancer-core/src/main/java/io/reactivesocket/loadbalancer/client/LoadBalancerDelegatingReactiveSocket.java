@@ -1,3 +1,18 @@
+/**
+ * Copyright 2016 Netflix, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package io.reactivesocket.loadbalancer.client;
 
 import io.reactivesocket.Payload;
@@ -16,7 +31,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * An implementation of {@link DelegatingReactiveSocket} will load balance across a pool of childern reactive sockets clients.
+ * An implementation of {@link ReactiveSocket} will load balance across a pool of childern reactive sockets clients.
  * It uses power of two choice to select the client. This client is "always" available.
  */
 public class LoadBalancerDelegatingReactiveSocket implements DelegatingReactiveSocket {
@@ -24,9 +39,9 @@ public class LoadBalancerDelegatingReactiveSocket implements DelegatingReactiveS
 
     private final ClosedConnectionsProvider closedConnectionsProvider;
 
-    private final Map<SocketAddress, DelegatingReactiveSocket> clientMap;
+    private final Map<SocketAddress, ReactiveSocket> clientMap;
 
-    private final ReactiveSocketFactory<SocketAddress, DelegatingReactiveSocket> reactiveSocketClientFactory;
+    private final ReactiveSocketFactory<SocketAddress, ? extends ReactiveSocket> reactiveSocketClientFactory;
 
     private final NumberGenerator numberGenerator;
 
@@ -34,7 +49,7 @@ public class LoadBalancerDelegatingReactiveSocket implements DelegatingReactiveS
 
     public LoadBalancerDelegatingReactiveSocket(SocketAddressFactory socketAddressFactory,
                                                 ClosedConnectionsProvider closedConnectionsProvider,
-                                                ReactiveSocketFactory<SocketAddress, DelegatingReactiveSocket> reactiveSocketClientFactory,
+                                                ReactiveSocketFactory<SocketAddress, ? extends ReactiveSocket> reactiveSocketClientFactory,
                                                 NumberGenerator numberGenerator) {
         this.socketAddressFactory = socketAddressFactory;
         this.closedConnectionsProvider = closedConnectionsProvider;
@@ -48,8 +63,8 @@ public class LoadBalancerDelegatingReactiveSocket implements DelegatingReactiveS
         return 1;
     }
 
-    <T> Publisher<T> loadBalance(Action action, Payload payload) {
-        Publisher<T> payloadPublisher = s -> {
+    <T> Publisher<T> loadBalance(Action<T> action, Payload payload) {
+        return s -> {
             s.onSubscribe(EmptySubscription.INSTANCE);
             socketAddressFactory
                 .call()
@@ -67,19 +82,19 @@ public class LoadBalancerDelegatingReactiveSocket implements DelegatingReactiveS
                         if (size == 0) {
                             onError(NO_AVAILABLE_REACTIVE_SOCKET_CLIENTS_EXCEPTION);
                         } else if (size == 1) {
-                            DelegatingReactiveSocket delegatingReactiveSocket = getReactiveSocketClient(socketAddresses.get(0));
+                            ReactiveSocket reactiveSocket = getReactiveSocketClient(socketAddresses.get(0));
                             // If the one connection isn't available return an exception
-                            if (delegatingReactiveSocket.availability() == 0) {
+                            if (reactiveSocket.availability() == 0) {
                                 onError(NO_AVAILABLE_REACTIVE_SOCKET_CLIENTS_EXCEPTION);
                             } else {
-                                action.call(s, delegatingReactiveSocket, payload);
+                                action.call(s, reactiveSocket, payload);
                             }
                         } else if (size == 2) {
                             SocketAddress socketAddress1 = socketAddresses.get(0);
                             SocketAddress socketAddress2 = socketAddresses.get(1);
 
-                            DelegatingReactiveSocket rsc1 = getReactiveSocketClient(socketAddress1);
-                            DelegatingReactiveSocket rsc2 = getReactiveSocketClient(socketAddress2);
+                            ReactiveSocket rsc1 = getReactiveSocketClient(socketAddress1);
+                            ReactiveSocket rsc2 = getReactiveSocketClient(socketAddress2);
 
                             if (rsc1.availability() == 0 && rsc2.availability() == 0) {
                                 s.onError(NO_AVAILABLE_REACTIVE_SOCKET_CLIENTS_EXCEPTION);
@@ -89,8 +104,8 @@ public class LoadBalancerDelegatingReactiveSocket implements DelegatingReactiveS
                                 action.call(s, rsc2, payload);
                             }
                         } else {
-                            DelegatingReactiveSocket rsc1 = null;
-                            DelegatingReactiveSocket rsc2 = null;
+                            ReactiveSocket rsc1 = null;
+                            ReactiveSocket rsc2 = null;
                             for (int i = 0; i < 5; i++) {
                                 if (rsc1 == null) rsc1 = getRandomReactiveSocketClient(socketAddresses, size);
                                 if (rsc2 == null) rsc2 = getRandomReactiveSocketClient(socketAddresses, size);
@@ -160,14 +175,12 @@ public class LoadBalancerDelegatingReactiveSocket implements DelegatingReactiveS
                     }
                 });
         };
-
-        return payloadPublisher;
     }
 
 
     @FunctionalInterface
     interface Action<T> {
-        void call(Subscriber <? super T> subscriber, DelegatingReactiveSocket client, Payload payload);
+        void call(Subscriber <? super T> subscriber, ReactiveSocket client, Payload payload);
     }
 
     @Override
@@ -337,14 +350,12 @@ public class LoadBalancerDelegatingReactiveSocket implements DelegatingReactiveS
         return null;
     }
 
-    DelegatingReactiveSocket getRandomReactiveSocketClient(List<SocketAddress> socketAddresses, int size) {
+    ReactiveSocket getRandomReactiveSocketClient(List<SocketAddress> socketAddresses, int size) {
         SocketAddress socketAddress = socketAddresses.get(numberGenerator.nextInt() % size);
-        DelegatingReactiveSocket delegatingReactiveSocket = getReactiveSocketClient(socketAddress);
-
-        return delegatingReactiveSocket;
+        return getReactiveSocketClient(socketAddress);
     }
 
-    DelegatingReactiveSocket getReactiveSocketClient(SocketAddress socketAddress) {
+    ReactiveSocket getReactiveSocketClient(SocketAddress socketAddress) {
         return clientMap.computeIfAbsent(socketAddress, reactiveSocketClientFactory::callAndWait);
     }
 

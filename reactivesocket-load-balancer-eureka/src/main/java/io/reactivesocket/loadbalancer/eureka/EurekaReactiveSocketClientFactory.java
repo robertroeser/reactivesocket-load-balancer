@@ -1,3 +1,18 @@
+/**
+ * Copyright 2016 Netflix, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package io.reactivesocket.loadbalancer.eureka;
 
 import com.netflix.discovery.DiscoveryClient;
@@ -5,7 +20,6 @@ import io.reactivesocket.ReactiveSocket;
 import io.reactivesocket.ReactiveSocketFactory;
 import io.reactivesocket.internal.rx.EmptySubscription;
 import io.reactivesocket.loadbalancer.XORShiftRandom;
-import io.reactivesocket.loadbalancer.client.DelegatingReactiveSocket;
 import io.reactivesocket.loadbalancer.client.FailureAwareDelegatingReactiveSocket;
 import io.reactivesocket.loadbalancer.client.InitializingDelegatingReactiveSocket;
 import io.reactivesocket.loadbalancer.client.LoadBalancerDelegatingReactiveSocket;
@@ -13,14 +27,15 @@ import io.reactivesocket.loadbalancer.client.LoadEstimatorDelegatingReactiveSock
 import io.reactivesocket.loadbalancer.servo.ServoMetricsDelegatingReactiveSocket;
 import org.reactivestreams.Publisher;
 
+import java.net.SocketAddress;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Implementation of {@link ReactiveSocketFactory} that creates {@link DelegatingReactiveSocket}s that use a
+ * Implementation of {@link ReactiveSocketFactory} that creates {@link ReactiveSocket}s that use a
  * {@link EurekaReactiveSocketClientFactory} to look instances to talk to.
  */
 public class EurekaReactiveSocketClientFactory implements ReactiveSocketFactory<EurekaReactiveSocketClientFactory.EurekaReactiveSocketClientFactoryConfig, ReactiveSocket> {
-    
+
     private DiscoveryClient discoveryClient;
 
     public EurekaReactiveSocketClientFactory(DiscoveryClient discoveryClient) {
@@ -40,8 +55,8 @@ public class EurekaReactiveSocketClientFactory implements ReactiveSocketFactory<
                 addressFactory,
                 addressFactory.getClosedConnectionProvider(),
                 socketAddress -> {
-                    InitializingDelegatingReactiveSocket initializingReactiveSocketClient
-                        = new InitializingDelegatingReactiveSocket(
+                    InitializingDelegatingReactiveSocket<SocketAddress> initializingReactiveSocketClient
+                        = new InitializingDelegatingReactiveSocket<>(
                         config.reactiveSocketFactory,
                         socketAddress,
                         config.connectionFailureTimeout,
@@ -72,7 +87,7 @@ public class EurekaReactiveSocketClientFactory implements ReactiveSocketFactory<
         boolean secure;
         int poolsize;
         String vip;
-        ReactiveSocketFactory reactiveSocketFactory;
+        ReactiveSocketFactory<SocketAddress, ? extends ReactiveSocket> reactiveSocketFactory;
         long connectionFailureTimeout;
         TimeUnit connectionFailureTimeoutTimeUnit;
         long connectionFailureRetryWindow;
@@ -85,7 +100,7 @@ public class EurekaReactiveSocketClientFactory implements ReactiveSocketFactory<
         public EurekaReactiveSocketClientFactoryConfig(String vip,
                                                        boolean secure,
                                                        int poolsize,
-                                                       ReactiveSocketFactory reactiveSocketFactory,
+                                                       ReactiveSocketFactory<SocketAddress, ? extends ReactiveSocket> reactiveSocketFactory,
                                                        long connectionFailureTimeout, 
                                                        TimeUnit connectionFailureTimeoutTimeUnit, 
                                                        long connectionFailureRetryWindow, 
@@ -111,7 +126,7 @@ public class EurekaReactiveSocketClientFactory implements ReactiveSocketFactory<
         public static EurekaReactiveSocketClientFactoryConfig newInstance(
             String vip,
             int poolsize,
-            ReactiveSocketFactory reactiveSocketFactory) {
+            ReactiveSocketFactory<SocketAddress, ? extends ReactiveSocket> reactiveSocketFactory) {
             return new EurekaReactiveSocketClientFactoryConfig(
                 vip,
                 false,
@@ -139,7 +154,7 @@ public class EurekaReactiveSocketClientFactory implements ReactiveSocketFactory<
             return vip;
         }
 
-        public ReactiveSocketFactory getReactiveSocketFactory() {
+        public ReactiveSocketFactory<SocketAddress, ? extends ReactiveSocket> getReactiveSocketFactory() {
             return reactiveSocketFactory;
         }
 
@@ -191,7 +206,7 @@ public class EurekaReactiveSocketClientFactory implements ReactiveSocketFactory<
             return this;
         }
 
-        public EurekaReactiveSocketClientFactoryConfig reactiveSocketFactory(ReactiveSocketFactory reactiveSocketFactory) {
+        public EurekaReactiveSocketClientFactoryConfig reactiveSocketFactory(ReactiveSocketFactory<SocketAddress, ? extends ReactiveSocket> reactiveSocketFactory) {
             this.reactiveSocketFactory = reactiveSocketFactory;
             return this;
         }
@@ -236,5 +251,4 @@ public class EurekaReactiveSocketClientFactory implements ReactiveSocketFactory<
             return this;
         }
     }
-    
 }

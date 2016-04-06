@@ -1,3 +1,18 @@
+/**
+ * Copyright 2016 Netflix, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package io.reactivesocket.loadbalancer.client;
 
 import io.reactivesocket.Payload;
@@ -56,7 +71,7 @@ public interface DelegatingReactiveSocket extends ReactiveSocket {
      * @param client the reactivesocket client to delegate too
      * @param payload the payload that is being sent
      */
-    default void delegateRequestResponse(Subscriber<? super Payload> subscriber, DelegatingReactiveSocket client, Payload payload) {
+    default void delegateRequestResponse(Subscriber<? super Payload> subscriber, ReactiveSocket client, Payload payload) {
         subscriber.onSubscribe(EmptySubscription.INSTANCE);
         client
             .requestResponse(payload)
@@ -83,7 +98,7 @@ public interface DelegatingReactiveSocket extends ReactiveSocket {
             });
     }
 
-    default void delegateRequestSubscription(Subscriber<? super Payload> subscriber, DelegatingReactiveSocket client, Payload payload) {
+    default void delegateRequestSubscription(Subscriber<? super Payload> subscriber, ReactiveSocket client, Payload payload) {
         subscriber.onSubscribe(EmptySubscription.INSTANCE);
         client.requestSubscription(payload).subscribe(new Subscriber<Payload>() {
             Subscription subscription;
@@ -118,7 +133,7 @@ public interface DelegatingReactiveSocket extends ReactiveSocket {
      * @param client the reactivesocket client to delegate too
      * @param payload the payload that is being sent
      */
-    default void delegateRequestResponse(Subscriber<? super Payload> subscriber, DelegatingReactiveSocket client, Payload payload, Runnable doOnComplete) {
+    default void delegateRequestResponse(Subscriber<? super Payload> subscriber, ReactiveSocket client, Payload payload, Runnable doOnComplete) {
         subscriber.onSubscribe(EmptySubscription.INSTANCE);
         client
             .requestResponse(payload)
@@ -153,7 +168,7 @@ public interface DelegatingReactiveSocket extends ReactiveSocket {
      * @param client the reactivesocket client to delegate too
      * @param payload the payload that is being sent
      */
-    default void delegateRequestResponse(Subscriber<? super Payload> subscriber, DelegatingReactiveSocket client, Payload payload, Runnable doOnComplete, Runnable doOnError) {
+    default void delegateRequestResponse(Subscriber<? super Payload> subscriber, ReactiveSocket client, Payload payload, Runnable doOnComplete, Runnable doOnError) {
         subscriber.onSubscribe(EmptySubscription.INSTANCE);
         client
             .requestResponse(payload)
