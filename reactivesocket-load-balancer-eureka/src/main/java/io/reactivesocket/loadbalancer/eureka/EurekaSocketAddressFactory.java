@@ -18,11 +18,8 @@ package io.reactivesocket.loadbalancer.eureka;
 import com.netflix.appinfo.InstanceInfo;
 import com.netflix.discovery.DiscoveryClient;
 import io.reactivesocket.internal.rx.EmptySubscription;
-import io.reactivesocket.loadbalancer.ClosedConnectionsProvider;
-import io.reactivesocket.loadbalancer.SocketAddressFactory;
 import io.reactivesocket.loadbalancer.client.DelegatingReactiveSocket;
 import org.reactivestreams.Publisher;
-import org.reactivestreams.Subscriber;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,10 +31,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 
-/**
- * An implementation of {@link SocketAddressFactory} that returns a list of factories using Eureka
- */
-public class EurekaSocketAddressFactory implements SocketAddressFactory {
+public class EurekaSocketAddressFactory {
     private static final long TIMEOUT = TimeUnit.SECONDS.toNanos(15);
 
     private static final Logger logger = LoggerFactory.getLogger(EurekaSocketAddressFactory.class);
@@ -71,8 +65,10 @@ public class EurekaSocketAddressFactory implements SocketAddressFactory {
         this.reentrantLock = new ReentrantLock();
     }
 
-    @Override
-    public Publisher<List<SocketAddress>> call() {
+    /**
+     * An implementation of {@link Publisher} that returns a list of factories using Eureka
+     */
+    public Publisher<List<SocketAddress>> getConnectionProvider() {
         if (pool.isEmpty()) {
             synchronized (this) {
                 if (pool.isEmpty()) {
@@ -83,7 +79,7 @@ public class EurekaSocketAddressFactory implements SocketAddressFactory {
             }
         }
 
-        return (Subscriber<? super List<SocketAddress>> s) -> {
+        return s -> {
             s.onSubscribe(EmptySubscription.INSTANCE);
             try {
                 s.onNext(pool);
@@ -108,12 +104,12 @@ public class EurekaSocketAddressFactory implements SocketAddressFactory {
     }
 
     /**
-     * Gets an implementation of the {@link ClosedConnectionsProvider}
+     * Gets an implementation of the {@link Publisher}
      * that can be provided to the {@link DelegatingReactiveSocket} to clean up missing connections
      * @return an Observable of list connections that should be closed
      */
-    public ClosedConnectionsProvider getClosedConnectionProvider() {
-        return () -> s -> {
+    public Publisher<List<SocketAddress>> getClosedConnectionProvider() {
+        return s -> {
             s.onSubscribe(EmptySubscription.INSTANCE);
             if (EMPTY_LIST.isEmpty()) {
                 s.onNext(EMPTY_LIST);

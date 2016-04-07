@@ -1,5 +1,5 @@
 dependencies {
     compile project (':reactivesocket-load-balancer-core')
-    compile 'com.netflix.servo:servo-core:0.12.3'
-    compile 'org.hdrhistogram:HdrHistogram:2.1.7'
+    compile 'com.netflix.servo:servo-core:latest.release'
+    compile 'org.hdrhistogram:HdrHistogram:latest.release'
 }
