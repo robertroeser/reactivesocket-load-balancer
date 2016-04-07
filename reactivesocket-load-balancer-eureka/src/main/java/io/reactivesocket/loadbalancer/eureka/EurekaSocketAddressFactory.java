@@ -26,8 +26,11 @@ import org.slf4j.LoggerFactory;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -40,7 +43,7 @@ public class EurekaSocketAddressFactory {
 
     final private DiscoveryClient client;
 
-    final List<SocketAddress> pool;
+    final Set<SocketAddress> pool;
 
     final List<SocketAddress> prunedList;
 
@@ -60,7 +63,7 @@ public class EurekaSocketAddressFactory {
         this.poolSize = poolSize;
         this.vip = vip;
         this.secure = secure;
-        this.pool = new CopyOnWriteArrayList<>();
+        this.pool = new CopyOnWriteArraySet<>();
         this.prunedList = new CopyOnWriteArrayList<>();
         this.reentrantLock = new ReentrantLock();
     }
@@ -82,7 +85,7 @@ public class EurekaSocketAddressFactory {
         return s -> {
             s.onSubscribe(EmptySubscription.INSTANCE);
             try {
-                s.onNext(pool);
+                s.onNext(new ArrayList<>(pool));
                 s.onComplete();
             } finally {
                 if (System.nanoTime() - lastUpdate > TIMEOUT) {
@@ -162,20 +165,13 @@ public class EurekaSocketAddressFactory {
     }
 
     void populateList(List<InstanceInfo> instancesByVipAddress) {
-        final int numOfInstances = instancesByVipAddress.size();
-        final int limit = poolSize - pool.size();
-        int count = 0;
-
-        while (count < limit && count < numOfInstances) {
-            InstanceInfo instanceInfo = instancesByVipAddress.get(count);
-            InetSocketAddress address = instanceInfoToSocketAddress(instanceInfo);
-            if (!pool.contains(address)) {
+        Iterator<InstanceInfo> iter = instancesByVipAddress.iterator();
+        while (pool.size() < poolSize && iter.hasNext()) {
+            InetSocketAddress address = instanceInfoToSocketAddress(iter.next());
+            if (pool.add(address)) {
                 if (logger.isDebugEnabled()) {
                     logger.debug("Address {} not found in pool - adding", address);
                 }
-
-                pool.add(address);
-                count++;
             }
         }
     }
