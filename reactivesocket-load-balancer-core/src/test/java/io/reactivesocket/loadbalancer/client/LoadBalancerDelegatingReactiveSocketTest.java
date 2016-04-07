@@ -17,16 +17,12 @@ package io.reactivesocket.loadbalancer.client;
 
 import io.reactivesocket.Payload;
 import io.reactivesocket.ReactiveSocket;
-import io.reactivesocket.ReactiveSocketFactory;
 import io.reactivesocket.internal.rx.EmptySubscription;
-import io.reactivesocket.loadbalancer.ClosedConnectionsProvider;
-import io.reactivesocket.loadbalancer.SocketAddressFactory;
 import io.reactivesocket.loadbalancer.XORShiftRandom;
 import org.junit.Assert;
 import org.junit.Test;
 import org.mockito.Mockito;
 import org.reactivestreams.Publisher;
-import org.reactivestreams.Subscriber;
 import rx.RxReactiveStreams;
 import rx.observers.TestSubscriber;
 
@@ -44,46 +40,17 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class LoadBalancerDelegatingReactiveSocketTest {
     @Test
     public void testNoConnectionsAvailable() {
-        LoadBalancerDelegatingReactiveSocket client
-            = new LoadBalancerDelegatingReactiveSocket(new SocketAddressFactory() {
-            @Override
-            public Publisher<List<SocketAddress>> call() {
-                return new Publisher<List<SocketAddress>>() {
-                    @Override
-                    public void subscribe(Subscriber<? super List<SocketAddress>> s) {
-                        s.onSubscribe(EmptySubscription.INSTANCE);
-                        s.onNext(new ArrayList<SocketAddress>());
-                    }
-                };
-            }
-        }, new ClosedConnectionsProvider() {
-            @Override
-            public Publisher<List<SocketAddress>> call() {
-                return new Publisher<List<SocketAddress>>() {
-                    @Override
-                    public void subscribe(Subscriber<? super List<SocketAddress>> s) {
-                        s.onSubscribe(EmptySubscription.INSTANCE);
-                        s.onNext(new ArrayList<SocketAddress>());
-                        s.onComplete();
-                    }
-                };
-            }
-        }, new ReactiveSocketFactory<SocketAddress, ReactiveSocket>() {
-            @Override
-            public ReactiveSocket callAndWait(SocketAddress socketAddress) {
-                return null;
-            }
-
-            @Override
-            public Publisher<ReactiveSocket> call(SocketAddress socketAddress) {
-                return null;
-            }
-        }, new LoadBalancerDelegatingReactiveSocket.NumberGenerator() {
-            @Override
-            public int generateInt() {
-                return XORShiftRandom.getInstance().randomInt();
-            }
-        });
+        LoadBalancerDelegatingReactiveSocket<SocketAddress> client =
+            new LoadBalancerDelegatingReactiveSocket<>(() -> s -> {
+                s.onSubscribe(EmptySubscription.INSTANCE);
+                s.onNext(new ArrayList<SocketAddress>());
+            }, () -> s -> {
+                s.onSubscribe(EmptySubscription.INSTANCE);
+                s.onNext(new ArrayList<SocketAddress>());
+                s.onComplete();
+            },
+            socketAddress -> null,
+            () -> XORShiftRandom.getInstance().randomInt());
 
         Publisher<Payload> payloadPublisher = client.requestResponse(new Payload() {
             @Override
@@ -110,47 +77,21 @@ public class LoadBalancerDelegatingReactiveSocketTest {
         ReactiveSocket c = Mockito.mock(ReactiveSocket.class);
         Mockito.when(c.availability()).thenReturn(0.0);
 
-        LoadBalancerDelegatingReactiveSocket client
-            = new LoadBalancerDelegatingReactiveSocket(new SocketAddressFactory() {
-            @Override
-            public Publisher<List<SocketAddress>> call() {
-                return new Publisher<List<SocketAddress>>() {
-                    @Override
-                    public void subscribe(Subscriber<? super List<SocketAddress>> s) {
-                        ArrayList<SocketAddress> socketAddresses = new ArrayList<>();
-                        socketAddresses.add(InetSocketAddress.createUnresolved("localhost", 8080));
-                        s.onSubscribe(EmptySubscription.INSTANCE);
-                        s.onNext(socketAddresses);
-                    }
-                };
-            }
-        }, new ClosedConnectionsProvider() {
-            @Override
-            public Publisher<List<SocketAddress>> call() {
-                return new Publisher<List<SocketAddress>>() {
-                    @Override
-                    public void subscribe(Subscriber<? super List<SocketAddress>> s) {
-                        s.onSubscribe(EmptySubscription.INSTANCE);
-                        s.onNext(new ArrayList<SocketAddress>());
-                        s.onComplete();
-                    }
-                };
-            }
-        }, new ReactiveSocketFactory<SocketAddress, ReactiveSocket>() {
-            @Override
-            public Publisher<ReactiveSocket> call(SocketAddress socketAddress) {
-                return s -> {
-                    s.onSubscribe(EmptySubscription.INSTANCE);
-                    s.onNext(c);
-                    s.onComplete();
-                };
-            }
-        }, new LoadBalancerDelegatingReactiveSocket.NumberGenerator() {
-            @Override
-            public int generateInt() {
-                return XORShiftRandom.getInstance().randomInt();
-            }
-        });
+        LoadBalancerDelegatingReactiveSocket<SocketAddress> client =
+            new LoadBalancerDelegatingReactiveSocket<>(() -> s -> {
+                ArrayList<SocketAddress> socketAddresses = new ArrayList<>();
+                socketAddresses.add(InetSocketAddress.createUnresolved("localhost", 8080));
+                s.onSubscribe(EmptySubscription.INSTANCE);
+                s.onNext(socketAddresses);
+            }, () -> s -> {
+                s.onSubscribe(EmptySubscription.INSTANCE);
+                s.onNext(new ArrayList<SocketAddress>());
+                s.onComplete();
+            }, socketAddress -> s -> {
+                s.onSubscribe(EmptySubscription.INSTANCE);
+                s.onNext(c);
+                s.onComplete();
+            }, () -> XORShiftRandom.getInstance().randomInt());
 
         Publisher<Payload> payloadPublisher = client.requestResponse(new Payload() {
             @Override
@@ -180,66 +121,37 @@ public class LoadBalancerDelegatingReactiveSocketTest {
         Mockito.when(c.availability()).thenReturn(1.0);
         Mockito
             .when(c.requestResponse(Mockito.any(Payload.class)))
-            .thenReturn(new Publisher<Payload>() {
-                @Override
-                public void subscribe(Subscriber<? super Payload> s) {
-                    s.onSubscribe(EmptySubscription.INSTANCE);
-                    s.onNext(new Payload() {
-                        @Override
-                        public ByteBuffer getData() {
-                            return null;
-                        }
+            .thenReturn(s -> {
+                s.onSubscribe(EmptySubscription.INSTANCE);
+                s.onNext(new Payload() {
+                    @Override
+                    public ByteBuffer getData() {
+                        return null;
+                    }
 
-                        @Override
-                        public ByteBuffer getMetadata() {
-                            return null;
-                        }
-                    });
-                    s.onComplete();
-                }
+                    @Override
+                    public ByteBuffer getMetadata() {
+                        return null;
+                    }
+                });
+                s.onComplete();
             });
 
-        LoadBalancerDelegatingReactiveSocket client
-            = new LoadBalancerDelegatingReactiveSocket(new SocketAddressFactory() {
-            @Override
-            public Publisher<List<SocketAddress>> call() {
-                return new Publisher<List<SocketAddress>>() {
-                    @Override
-                    public void subscribe(Subscriber<? super List<SocketAddress>> s) {
-                        ArrayList<SocketAddress> socketAddresses = new ArrayList<>();
-                        socketAddresses.add(InetSocketAddress.createUnresolved("localhost", 8080));
-                        s.onSubscribe(EmptySubscription.INSTANCE);
-                        s.onNext(socketAddresses);
-                    }
-                };
-            }
-        }, new ClosedConnectionsProvider() {
-            @Override
-            public Publisher<List<SocketAddress>> call() {
-                return new Publisher<List<SocketAddress>>() {
-                    @Override
-                    public void subscribe(Subscriber<? super List<SocketAddress>> s) {
-                        s.onSubscribe(EmptySubscription.INSTANCE);
-                        s.onNext(new ArrayList<SocketAddress>());
-                        s.onComplete();
-                    }
-                };
-            }
-        }, new ReactiveSocketFactory<SocketAddress, ReactiveSocket>() {
-            @Override
-            public Publisher<ReactiveSocket> call(SocketAddress socketAddress) {
-                return s -> {
-                    s.onSubscribe(EmptySubscription.INSTANCE);
-                    s.onNext(c);
-                    s.onComplete();
-                };
-            }
-        }, new LoadBalancerDelegatingReactiveSocket.NumberGenerator() {
-            @Override
-            public int generateInt() {
-                return XORShiftRandom.getInstance().randomInt();
-            }
-        });
+        LoadBalancerDelegatingReactiveSocket<SocketAddress> client =
+            new LoadBalancerDelegatingReactiveSocket<>(() -> s -> {
+                ArrayList<SocketAddress> socketAddresses = new ArrayList<>();
+                socketAddresses.add(InetSocketAddress.createUnresolved("localhost", 8080));
+                s.onSubscribe(EmptySubscription.INSTANCE);
+                s.onNext(socketAddresses);
+            }, () -> s -> {
+                s.onSubscribe(EmptySubscription.INSTANCE);
+                s.onNext(new ArrayList<SocketAddress>());
+                s.onComplete();
+            }, socketAddress -> s -> {
+                s.onSubscribe(EmptySubscription.INSTANCE);
+                s.onNext(c);
+                s.onComplete();
+            }, () -> XORShiftRandom.getInstance().randomInt());
 
         Publisher<Payload> payloadPublisher = client.requestResponse(new Payload() {
             @Override
@@ -269,96 +181,64 @@ public class LoadBalancerDelegatingReactiveSocketTest {
         Mockito.when(c1.availability()).thenReturn(0.5);
         Mockito
             .when(c1.requestResponse(Mockito.any(Payload.class)))
-            .thenReturn(new Publisher<Payload>() {
-                @Override
-                public void subscribe(Subscriber<? super Payload> s) {
-                    s.onSubscribe(EmptySubscription.INSTANCE);
-                    s.onNext(new Payload() {
-                        @Override
-                        public ByteBuffer getData() {
-                            return null;
-                        }
+            .thenReturn(s -> {
+                s.onSubscribe(EmptySubscription.INSTANCE);
+                s.onNext(new Payload() {
+                    @Override
+                    public ByteBuffer getData() {
+                        return null;
+                    }
 
-                        @Override
-                        public ByteBuffer getMetadata() {
-                            return null;
-                        }
-                    });
-                    s.onComplete();
-                }
+                    @Override
+                    public ByteBuffer getMetadata() {
+                        return null;
+                    }
+                });
+                s.onComplete();
             });
 
         ReactiveSocket c2 = Mockito.mock(ReactiveSocket.class);
         Mockito.when(c2.availability()).thenReturn(0.9);
         Mockito
             .when(c2.requestResponse(Mockito.any(Payload.class)))
-            .thenReturn(new Publisher<Payload>() {
-                @Override
-                public void subscribe(Subscriber<? super Payload> s) {
-                    s.onSubscribe(EmptySubscription.INSTANCE);
-                    s.onNext(new Payload() {
-                        @Override
-                        public ByteBuffer getData() {
-                            return null;
-                        }
+            .thenReturn(s -> {
+                s.onSubscribe(EmptySubscription.INSTANCE);
+                s.onNext(new Payload() {
+                    @Override
+                    public ByteBuffer getData() {
+                        return null;
+                    }
 
-                        @Override
-                        public ByteBuffer getMetadata() {
-                            return null;
-                        }
-                    });
-                    s.onComplete();
-                }
+                    @Override
+                    public ByteBuffer getMetadata() {
+                        return null;
+                    }
+                });
+                s.onComplete();
             });
 
-        LoadBalancerDelegatingReactiveSocket client
-            = new LoadBalancerDelegatingReactiveSocket(new SocketAddressFactory() {
-            @Override
-            public Publisher<List<SocketAddress>> call() {
-                return new Publisher<List<SocketAddress>>() {
-                    @Override
-                    public void subscribe(Subscriber<? super List<SocketAddress>> s) {
-                        ArrayList<SocketAddress> socketAddresses = new ArrayList<>();
-                        socketAddresses.add(InetSocketAddress.createUnresolved("localhost1", 8080));
-                        socketAddresses.add(InetSocketAddress.createUnresolved("localhost2", 8080));
-                        s.onSubscribe(EmptySubscription.INSTANCE);
-                        s.onNext(socketAddresses);
-                    }
-                };
-            }
-        }, new ClosedConnectionsProvider() {
-            @Override
-            public Publisher<List<SocketAddress>> call() {
-                return new Publisher<List<SocketAddress>>() {
-                    @Override
-                    public void subscribe(Subscriber<? super List<SocketAddress>> s) {
-                        s.onSubscribe(EmptySubscription.INSTANCE);
-                        s.onNext(new ArrayList<SocketAddress>());
-                        s.onComplete();
-                    }
-                };
-            }
-        }, new ReactiveSocketFactory<SocketAddress, ReactiveSocket>() {
-            @Override
-            public Publisher<ReactiveSocket> call(SocketAddress socketAddress) {
-                return s -> {
-                    s.onSubscribe(EmptySubscription.INSTANCE);
+        LoadBalancerDelegatingReactiveSocket<SocketAddress> client =
+            new LoadBalancerDelegatingReactiveSocket<>(() -> s -> {
+                ArrayList<SocketAddress> socketAddresses = new ArrayList<>();
+                socketAddresses.add(InetSocketAddress.createUnresolved("localhost1", 8080));
+                socketAddresses.add(InetSocketAddress.createUnresolved("localhost2", 8080));
+                s.onSubscribe(EmptySubscription.INSTANCE);
+                s.onNext(socketAddresses);
+            }, () -> s -> {
+                s.onSubscribe(EmptySubscription.INSTANCE);
+                s.onNext(new ArrayList<SocketAddress>());
+                s.onComplete();
+            }, socketAddress -> s -> {
+                s.onSubscribe(EmptySubscription.INSTANCE);
 
-                    InetSocketAddress inetSocketAddress = (InetSocketAddress) socketAddress;
-                    if (inetSocketAddress.getHostName().equals("localhost1")) {
-                        s.onNext(c1);
-                    } else {
-                        s.onNext(c2);
-                    }
-                    s.onComplete();
-                };
-            }
-        }, new LoadBalancerDelegatingReactiveSocket.NumberGenerator() {
-            @Override
-            public int generateInt() {
-                return XORShiftRandom.getInstance().randomInt();
-            }
-        });
+                InetSocketAddress inetSocketAddress = (InetSocketAddress) socketAddress;
+                if (inetSocketAddress.getHostName().equals("localhost1")) {
+                    s.onNext(c1);
+                } else {
+                    s.onNext(c2);
+                }
+                s.onComplete();
+            }, () -> XORShiftRandom.getInstance().randomInt());
 
         Publisher<Payload> payloadPublisher = client.requestResponse(new Payload() {
             @Override
@@ -389,150 +269,110 @@ public class LoadBalancerDelegatingReactiveSocketTest {
         Mockito.when(c1.availability()).thenReturn(0.0);
         Mockito
             .when(c1.requestResponse(Mockito.any(Payload.class)))
-            .thenReturn(new Publisher<Payload>() {
-                @Override
-                public void subscribe(Subscriber<? super Payload> s) {
-                    s.onSubscribe(EmptySubscription.INSTANCE);
-                    s.onNext(new Payload() {
-                        @Override
-                        public ByteBuffer getData() {
-                            return null;
-                        }
+            .thenReturn(s -> {
+                s.onSubscribe(EmptySubscription.INSTANCE);
+                s.onNext(new Payload() {
+                    @Override
+                    public ByteBuffer getData() {
+                        return null;
+                    }
 
-                        @Override
-                        public ByteBuffer getMetadata() {
-                            return null;
-                        }
-                    });
-                    s.onComplete();
-                }
+                    @Override
+                    public ByteBuffer getMetadata() {
+                        return null;
+                    }
+                });
+                s.onComplete();
             });
 
         ReactiveSocket c2 = Mockito.mock(ReactiveSocket.class);
         Mockito.when(c2.availability()).thenReturn(0.0);
         Mockito
             .when(c2.requestResponse(Mockito.any(Payload.class)))
-            .thenReturn(new Publisher<Payload>() {
-                @Override
-                public void subscribe(Subscriber<? super Payload> s) {
-                    s.onSubscribe(EmptySubscription.INSTANCE);
-                    s.onNext(new Payload() {
-                        @Override
-                        public ByteBuffer getData() {
-                            return null;
-                        }
+            .thenReturn(s -> {
+                s.onSubscribe(EmptySubscription.INSTANCE);
+                s.onNext(new Payload() {
+                    @Override
+                    public ByteBuffer getData() {
+                        return null;
+                    }
 
-                        @Override
-                        public ByteBuffer getMetadata() {
-                            return null;
-                        }
-                    });
-                    s.onComplete();
-                }
+                    @Override
+                    public ByteBuffer getMetadata() {
+                        return null;
+                    }
+                });
+                s.onComplete();
             });
 
         ReactiveSocket c3 = Mockito.mock(ReactiveSocket.class);
         Mockito.when(c3.availability()).thenReturn(0.0);
         Mockito
             .when(c3.requestResponse(Mockito.any(Payload.class)))
-            .thenReturn(new Publisher<Payload>() {
-                @Override
-                public void subscribe(Subscriber<? super Payload> s) {
-                    s.onSubscribe(EmptySubscription.INSTANCE);
-                    s.onNext(new Payload() {
-                        @Override
-                        public ByteBuffer getData() {
-                            return null;
-                        }
+            .thenReturn(s -> {
+                s.onSubscribe(EmptySubscription.INSTANCE);
+                s.onNext(new Payload() {
+                    @Override
+                    public ByteBuffer getData() {
+                        return null;
+                    }
 
-                        @Override
-                        public ByteBuffer getMetadata() {
-                            return null;
-                        }
-                    });
-                    s.onComplete();
-                }
+                    @Override
+                    public ByteBuffer getMetadata() {
+                        return null;
+                    }
+                });
+                s.onComplete();
             });
 
         ReactiveSocket c4 = Mockito.mock(ReactiveSocket.class);
         Mockito.when(c4.availability()).thenReturn(0.0);
         Mockito
             .when(c4.requestResponse(Mockito.any(Payload.class)))
-            .thenReturn(new Publisher<Payload>() {
-                @Override
-                public void subscribe(Subscriber<? super Payload> s) {
-                    s.onSubscribe(EmptySubscription.INSTANCE);
-                    s.onNext(new Payload() {
-                        @Override
-                        public ByteBuffer getData() {
-                            return null;
-                        }
+            .thenReturn(s -> {
+                s.onSubscribe(EmptySubscription.INSTANCE);
+                s.onNext(new Payload() {
+                    @Override
+                    public ByteBuffer getData() {
+                        return null;
+                    }
 
-                        @Override
-                        public ByteBuffer getMetadata() {
-                            return null;
-                        }
-                    });
-                    s.onComplete();
-                }
+                    @Override
+                    public ByteBuffer getMetadata() {
+                        return null;
+                    }
+                });
+                s.onComplete();
             });
 
-        LoadBalancerDelegatingReactiveSocket client
-            = new LoadBalancerDelegatingReactiveSocket(new SocketAddressFactory() {
-            @Override
-            public Publisher<List<SocketAddress>> call() {
-                return new Publisher<List<SocketAddress>>() {
-                    @Override
-                    public void subscribe(Subscriber<? super List<SocketAddress>> s) {
-                        ArrayList<SocketAddress> socketAddresses = new ArrayList<>();
-                        socketAddresses.add(InetSocketAddress.createUnresolved("localhost1", 8080));
-                        socketAddresses.add(InetSocketAddress.createUnresolved("localhost2", 8080));
-                        socketAddresses.add(InetSocketAddress.createUnresolved("localhost3", 8080));
-                        socketAddresses.add(InetSocketAddress.createUnresolved("localhost4", 8080));
-                        s.onSubscribe(EmptySubscription.INSTANCE);
-                        s.onNext(socketAddresses);
-                    }
-                };
-            }
-        }, new ClosedConnectionsProvider() {
-            @Override
-            public Publisher<List<SocketAddress>> call() {
-                return new Publisher<List<SocketAddress>>() {
-                    @Override
-                    public void subscribe(Subscriber<? super List<SocketAddress>> s) {
-                        s.onSubscribe(EmptySubscription.INSTANCE);
-                        s.onNext(new ArrayList<SocketAddress>());
-                        s.onComplete();
-                    }
-                };
-            }
-        },
-        new ReactiveSocketFactory<SocketAddress, ReactiveSocket>() {
-            @Override
-            public Publisher<ReactiveSocket> call(SocketAddress socketAddress) {
-                return s -> {
-                    s.onSubscribe(EmptySubscription.INSTANCE);
+        LoadBalancerDelegatingReactiveSocket<SocketAddress> client =
+            new LoadBalancerDelegatingReactiveSocket<>(() -> s -> {
+                ArrayList<SocketAddress> socketAddresses = new ArrayList<>();
+                socketAddresses.add(InetSocketAddress.createUnresolved("localhost1", 8080));
+                socketAddresses.add(InetSocketAddress.createUnresolved("localhost2", 8080));
+                socketAddresses.add(InetSocketAddress.createUnresolved("localhost3", 8080));
+                socketAddresses.add(InetSocketAddress.createUnresolved("localhost4", 8080));
+                s.onSubscribe(EmptySubscription.INSTANCE);
+                s.onNext(socketAddresses);
+            }, () -> s -> {
+                s.onSubscribe(EmptySubscription.INSTANCE);
+                s.onNext(new ArrayList<SocketAddress>());
+                s.onComplete();
+            }, socketAddress -> s -> {
+                s.onSubscribe(EmptySubscription.INSTANCE);
 
-                    InetSocketAddress inetSocketAddress = (InetSocketAddress) socketAddress;
-                    if (inetSocketAddress.getHostName().equals("localhost1")) {
-                        s.onNext(c1);
-                    } else if (inetSocketAddress.getHostName().equals("localhost2")) {
-                        s.onNext(c2);
-                    } else if (inetSocketAddress.getHostName().equals("localhost3")) {
-                        s.onNext(c3);
-                    } else {
-                        s.onNext(c4);
-                    }
-                    s.onComplete();
-                };
-            }
-
-            }, new LoadBalancerDelegatingReactiveSocket.NumberGenerator() {
-            @Override
-            public int generateInt() {
-                return XORShiftRandom.getInstance().randomInt();
-            }
-        });
+                InetSocketAddress inetSocketAddress = (InetSocketAddress) socketAddress;
+                if (inetSocketAddress.getHostName().equals("localhost1")) {
+                    s.onNext(c1);
+                } else if (inetSocketAddress.getHostName().equals("localhost2")) {
+                    s.onNext(c2);
+                } else if (inetSocketAddress.getHostName().equals("localhost3")) {
+                    s.onNext(c3);
+                } else {
+                    s.onNext(c4);
+                }
+                s.onComplete();
+            }, () -> XORShiftRandom.getInstance().randomInt());
 
         Publisher<Payload> payloadPublisher = client.requestResponse(new Payload() {
             @Override
@@ -556,64 +396,50 @@ public class LoadBalancerDelegatingReactiveSocketTest {
 
     @Test
     public void testAvailibleConnectionAvailable() {
-        ClosedConnectionsProvider closedConnectionsProvider = new ClosedConnectionsProvider() {
-            @Override
-            public Publisher<List<SocketAddress>> call() {
-                return new Publisher<List<SocketAddress>>() {
-                    @Override
-                    public void subscribe(Subscriber<? super List<SocketAddress>> s) {
-                        s.onSubscribe(EmptySubscription.INSTANCE);
-                        s.onNext(new ArrayList<SocketAddress>());
-                        s.onComplete();
-                    }
-                };
-            }
+        Publisher<List<SocketAddress>> closedConnectionsProvider = s -> {
+            s.onSubscribe(EmptySubscription.INSTANCE);
+            s.onNext(new ArrayList<SocketAddress>());
+            s.onComplete();
         };
 
         ReactiveSocket c1 = Mockito.mock(ReactiveSocket.class);
         Mockito.when(c1.availability()).thenReturn(1.0);
         Mockito
             .when(c1.requestResponse(Mockito.any(Payload.class)))
-            .thenReturn(new Publisher<Payload>() {
-                @Override
-                public void subscribe(Subscriber<? super Payload> s) {
-                    s.onSubscribe(EmptySubscription.INSTANCE);
-                    s.onNext(new Payload() {
-                        @Override
-                        public ByteBuffer getData() {
-                            return null;
-                        }
+            .thenReturn(s -> {
+                s.onSubscribe(EmptySubscription.INSTANCE);
+                s.onNext(new Payload() {
+                    @Override
+                    public ByteBuffer getData() {
+                        return null;
+                    }
 
-                        @Override
-                        public ByteBuffer getMetadata() {
-                            return null;
-                        }
-                    });
-                    s.onComplete();
-                }
+                    @Override
+                    public ByteBuffer getMetadata() {
+                        return null;
+                    }
+                });
+                s.onComplete();
             });
 
         ReactiveSocket c2 = Mockito.mock(ReactiveSocket.class);
         Mockito.when(c2.availability()).thenReturn(1.0);
         Mockito
             .when(c2.requestResponse(Mockito.any(Payload.class)))
-            .thenReturn(new Publisher<Payload>() {
-                @Override
-                public void subscribe(Subscriber<? super Payload> s) {
-                    s.onSubscribe(EmptySubscription.INSTANCE);
-                    s.onNext(new Payload() {
-                        @Override
-                        public ByteBuffer getData() {
-                            return null;
-                        }
+            .thenReturn(s -> {
+                s.onSubscribe(EmptySubscription.INSTANCE);
+                s.onNext(new Payload() {
+                    @Override
+                    public ByteBuffer getData() {
+                        return null;
+                    }
 
-                        @Override
-                        public ByteBuffer getMetadata() {
-                            return null;
-                        }
-                    });
-                    s.onComplete();
-                }
+                    @Override
+                    public ByteBuffer getMetadata() {
+                        return null;
+                    }
+                });
+                s.onComplete();
             });
 
         for (int i = 0; i < 50; i++) {
@@ -627,25 +453,17 @@ public class LoadBalancerDelegatingReactiveSocketTest {
     @Test
     public void testRemoveConnection() {
         AtomicBoolean tripped = new AtomicBoolean();
-        ClosedConnectionsProvider closedConnectionsProvider = new ClosedConnectionsProvider() {
-            @Override
-            public Publisher<List<SocketAddress>> call() {
-                return new Publisher<List<SocketAddress>>() {
-                    @Override
-                    public void subscribe(Subscriber<? super List<SocketAddress>> s) {
-                        s.onSubscribe(EmptySubscription.INSTANCE);
-                        if (!tripped.get()) {
-                            s.onNext(new ArrayList<SocketAddress>());
-                        } else {
-                            ArrayList<SocketAddress> socketAddresses = new ArrayList<>();
-                            socketAddresses.add(InetSocketAddress.createUnresolved("localhost2", 8080));
-                            s.onNext(socketAddresses);
-                        }
-
-                        s.onComplete();
-                    }
-                };
+        Publisher<List<SocketAddress>> closedConnectionsProvider = s -> {
+            s.onSubscribe(EmptySubscription.INSTANCE);
+            if (!tripped.get()) {
+                s.onNext(new ArrayList<SocketAddress>());
+            } else {
+                ArrayList<SocketAddress> socketAddresses = new ArrayList<>();
+                socketAddresses.add(InetSocketAddress.createUnresolved("localhost2", 8080));
+                s.onNext(socketAddresses);
             }
+
+            s.onComplete();
         };
 
         AtomicInteger c1Count = new AtomicInteger();
@@ -654,48 +472,42 @@ public class LoadBalancerDelegatingReactiveSocketTest {
         Mockito.when(c1.availability()).thenReturn(0.5);
         Mockito
             .when(c1.requestResponse(Mockito.any(Payload.class)))
-            .thenReturn(new Publisher<Payload>() {
-                @Override
-                public void subscribe(Subscriber<? super Payload> s) {
-                    s.onSubscribe(EmptySubscription.INSTANCE);
-                    s.onNext(new Payload() {
-                        @Override
-                        public ByteBuffer getData() {
-                            return null;
-                        }
+            .thenReturn(s -> {
+                s.onSubscribe(EmptySubscription.INSTANCE);
+                s.onNext(new Payload() {
+                    @Override
+                    public ByteBuffer getData() {
+                        return null;
+                    }
 
-                        @Override
-                        public ByteBuffer getMetadata() {
-                            return null;
-                        }
-                    });
-                    c1Count.incrementAndGet();
-                    s.onComplete();
-                }
+                    @Override
+                    public ByteBuffer getMetadata() {
+                        return null;
+                    }
+                });
+                c1Count.incrementAndGet();
+                s.onComplete();
             });
 
         ReactiveSocket c2 = Mockito.mock(ReactiveSocket.class);
         Mockito.when(c2.availability()).thenReturn(1.0);
         Mockito
             .when(c2.requestResponse(Mockito.any(Payload.class)))
-            .thenReturn(new Publisher<Payload>() {
-                @Override
-                public void subscribe(Subscriber<? super Payload> s) {
-                    s.onSubscribe(EmptySubscription.INSTANCE);
-                    s.onNext(new Payload() {
-                        @Override
-                        public ByteBuffer getData() {
-                            return null;
-                        }
+            .thenReturn(s -> {
+                s.onSubscribe(EmptySubscription.INSTANCE);
+                s.onNext(new Payload() {
+                    @Override
+                    public ByteBuffer getData() {
+                        return null;
+                    }
 
-                        @Override
-                        public ByteBuffer getMetadata() {
-                            return null;
-                        }
-                    });
-                    c2Count.incrementAndGet();
-                    s.onComplete();
-                }
+                    @Override
+                    public ByteBuffer getMetadata() {
+                        return null;
+                    }
+                });
+                c2Count.incrementAndGet();
+                s.onComplete();
             });
 
         for (int i = 0; i < 50; i++) {
@@ -715,18 +527,10 @@ public class LoadBalancerDelegatingReactiveSocketTest {
 
     @Test
     public void testHigherAvailibleIsCalledMoreTimes() {
-        ClosedConnectionsProvider closedConnectionsProvider = new ClosedConnectionsProvider() {
-            @Override
-            public Publisher<List<SocketAddress>> call() {
-                return new Publisher<List<SocketAddress>>() {
-                    @Override
-                    public void subscribe(Subscriber<? super List<SocketAddress>> s) {
-                        s.onSubscribe(EmptySubscription.INSTANCE);
-                        s.onNext(new ArrayList<SocketAddress>());
-                        s.onComplete();
-                    }
-                };
-            }
+        Publisher<List<SocketAddress>> closedConnectionsProvider = s -> {
+            s.onSubscribe(EmptySubscription.INSTANCE);
+            s.onNext(new ArrayList<SocketAddress>());
+            s.onComplete();
         };
 
         AtomicInteger c1Count = new AtomicInteger();
@@ -735,48 +539,42 @@ public class LoadBalancerDelegatingReactiveSocketTest {
         Mockito.when(c1.availability()).thenReturn(1.0);
         Mockito
             .when(c1.requestResponse(Mockito.any(Payload.class)))
-            .thenReturn(new Publisher<Payload>() {
-                @Override
-                public void subscribe(Subscriber<? super Payload> s) {
-                    s.onSubscribe(EmptySubscription.INSTANCE);
-                    s.onNext(new Payload() {
-                        @Override
-                        public ByteBuffer getData() {
-                            return null;
-                        }
+            .thenReturn(s -> {
+                s.onSubscribe(EmptySubscription.INSTANCE);
+                s.onNext(new Payload() {
+                    @Override
+                    public ByteBuffer getData() {
+                        return null;
+                    }
 
-                        @Override
-                        public ByteBuffer getMetadata() {
-                            return null;
-                        }
-                    });
-                    c1Count.incrementAndGet();
-                    s.onComplete();
-                }
+                    @Override
+                    public ByteBuffer getMetadata() {
+                        return null;
+                    }
+                });
+                c1Count.incrementAndGet();
+                s.onComplete();
             });
 
         ReactiveSocket c2 = Mockito.mock(ReactiveSocket.class);
         Mockito.when(c2.availability()).thenReturn(0.5);
         Mockito
             .when(c2.requestResponse(Mockito.any(Payload.class)))
-            .thenReturn(new Publisher<Payload>() {
-                @Override
-                public void subscribe(Subscriber<? super Payload> s) {
-                    s.onSubscribe(EmptySubscription.INSTANCE);
-                    s.onNext(new Payload() {
-                        @Override
-                        public ByteBuffer getData() {
-                            return null;
-                        }
+            .thenReturn(s -> {
+                s.onSubscribe(EmptySubscription.INSTANCE);
+                s.onNext(new Payload() {
+                    @Override
+                    public ByteBuffer getData() {
+                        return null;
+                    }
 
-                        @Override
-                        public ByteBuffer getMetadata() {
-                            return null;
-                        }
-                    });
-                    c2Count.incrementAndGet();
-                    s.onComplete();
-                }
+                    @Override
+                    public ByteBuffer getMetadata() {
+                        return null;
+                    }
+                });
+                c2Count.incrementAndGet();
+                s.onComplete();
             });
 
         for (int i = 0; i < 50; i++) {
@@ -790,95 +588,71 @@ public class LoadBalancerDelegatingReactiveSocketTest {
 
     }
 
-    public void availibleConnections(ReactiveSocket c1, ReactiveSocket c2, ClosedConnectionsProvider closedConnectionsProvider) {
+    public void availibleConnections(ReactiveSocket c1, ReactiveSocket c2, Publisher<List<SocketAddress>> closedConnectionsProvider) {
 
         ReactiveSocket c3 = Mockito.mock(ReactiveSocket.class);
         Mockito.when(c3.availability()).thenReturn(1.0);
         Mockito
             .when(c3.requestResponse(Mockito.any(Payload.class)))
-            .thenReturn(new Publisher<Payload>() {
-                @Override
-                public void subscribe(Subscriber<? super Payload> s) {
-                    s.onSubscribe(EmptySubscription.INSTANCE);
-                    s.onNext(new Payload() {
-                        @Override
-                        public ByteBuffer getData() {
-                            return null;
-                        }
+            .thenReturn(s -> {
+                s.onSubscribe(EmptySubscription.INSTANCE);
+                s.onNext(new Payload() {
+                    @Override
+                    public ByteBuffer getData() {
+                        return null;
+                    }
 
-                        @Override
-                        public ByteBuffer getMetadata() {
-                            return null;
-                        }
-                    });
-                    s.onComplete();
-                }
+                    @Override
+                    public ByteBuffer getMetadata() {
+                        return null;
+                    }
+                });
+                s.onComplete();
             });
 
         ReactiveSocket c4 = Mockito.mock(ReactiveSocket.class);
         Mockito.when(c4.availability()).thenReturn(0.0);
         Mockito
             .when(c4.requestResponse(Mockito.any(Payload.class)))
-            .thenReturn(new Publisher<Payload>() {
-                @Override
-                public void subscribe(Subscriber<? super Payload> s) {
-                    s.onSubscribe(EmptySubscription.INSTANCE);
-                    s.onNext(new Payload() {
-                        @Override
-                        public ByteBuffer getData() {
-                            return null;
-                        }
+            .thenReturn(s -> {
+                s.onSubscribe(EmptySubscription.INSTANCE);
+                s.onNext(new Payload() {
+                    @Override
+                    public ByteBuffer getData() {
+                        return null;
+                    }
 
-                        @Override
-                        public ByteBuffer getMetadata() {
-                            return null;
-                        }
-                    });
-                    s.onComplete();
-                }
+                    @Override
+                    public ByteBuffer getMetadata() {
+                        return null;
+                    }
+                });
+                s.onComplete();
             });
 
-        LoadBalancerDelegatingReactiveSocket client
-            = new LoadBalancerDelegatingReactiveSocket(new SocketAddressFactory() {
-            @Override
-            public Publisher<List<SocketAddress>> call() {
-                return new Publisher<List<SocketAddress>>() {
-                    @Override
-                    public void subscribe(Subscriber<? super List<SocketAddress>> s) {
-                        ArrayList<SocketAddress> socketAddresses = new ArrayList<>();
-                        socketAddresses.add(InetSocketAddress.createUnresolved("localhost1", 8080));
-                        socketAddresses.add(InetSocketAddress.createUnresolved("localhost2", 8080));
-                        socketAddresses.add(InetSocketAddress.createUnresolved("localhost3", 8080));
-                        socketAddresses.add(InetSocketAddress.createUnresolved("localhost4", 8080));
-                        s.onSubscribe(EmptySubscription.INSTANCE);
-                        s.onNext(socketAddresses);
-                    }
-                };
-            }
-        }, closedConnectionsProvider, new ReactiveSocketFactory<SocketAddress, ReactiveSocket>() {
-            @Override
-            public Publisher<ReactiveSocket> call(SocketAddress socketAddress) {
-                return s -> {
-                    s.onSubscribe(EmptySubscription.INSTANCE);
-                    InetSocketAddress inetSocketAddress = (InetSocketAddress) socketAddress;
-                    if (inetSocketAddress.getHostName().equals("localhost1")) {
-                        s.onNext(c1);
-                    } else if (inetSocketAddress.getHostName().equals("localhost2")) {
-                        s.onNext(c2);
-                    } else if (inetSocketAddress.getHostName().equals("localhost3")) {
-                        s.onNext(c3);
-                    } else {
-                        s.onNext(c4);
-                    }
-                    s.onComplete();
-                };
-            }
-        }, new LoadBalancerDelegatingReactiveSocket.NumberGenerator() {
-            @Override
-            public int generateInt() {
-                return XORShiftRandom.getInstance().randomInt();
-            }
-        });
+        LoadBalancerDelegatingReactiveSocket<SocketAddress> client
+            = new LoadBalancerDelegatingReactiveSocket<>(() -> s -> {
+                ArrayList<SocketAddress> socketAddresses = new ArrayList<>();
+                socketAddresses.add(InetSocketAddress.createUnresolved("localhost1", 8080));
+                socketAddresses.add(InetSocketAddress.createUnresolved("localhost2", 8080));
+                socketAddresses.add(InetSocketAddress.createUnresolved("localhost3", 8080));
+                socketAddresses.add(InetSocketAddress.createUnresolved("localhost4", 8080));
+                s.onSubscribe(EmptySubscription.INSTANCE);
+                s.onNext(socketAddresses);
+            }, () -> closedConnectionsProvider, socketAddress -> s -> {
+                s.onSubscribe(EmptySubscription.INSTANCE);
+                InetSocketAddress inetSocketAddress = (InetSocketAddress) socketAddress;
+                if (inetSocketAddress.getHostName().equals("localhost1")) {
+                    s.onNext(c1);
+                } else if (inetSocketAddress.getHostName().equals("localhost2")) {
+                    s.onNext(c2);
+                } else if (inetSocketAddress.getHostName().equals("localhost3")) {
+                    s.onNext(c3);
+                } else {
+                    s.onNext(c4);
+                }
+                s.onComplete();
+            }, () -> XORShiftRandom.getInstance().randomInt());
 
         Publisher<Payload> payloadPublisher = client.requestResponse(new Payload() {
             @Override

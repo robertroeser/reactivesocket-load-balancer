@@ -51,9 +51,9 @@ public class EurekaReactiveSocketClientFactory implements ReactiveSocketFactory<
                 config.secure,
                 config.poolsize);
 
-            LoadBalancerDelegatingReactiveSocket loadBalancerReactiveSocketClient = new LoadBalancerDelegatingReactiveSocket(
-                addressFactory,
-                addressFactory.getClosedConnectionProvider(),
+            LoadBalancerDelegatingReactiveSocket loadBalancerReactiveSocketClient = new LoadBalancerDelegatingReactiveSocket<>(
+                addressFactory::getConnectionProvider,
+                addressFactory::getClosedConnectionProvider,
                 socketAddress -> {
                     InitializingDelegatingReactiveSocket<SocketAddress> initializingReactiveSocketClient
                         = new InitializingDelegatingReactiveSocket<>(
