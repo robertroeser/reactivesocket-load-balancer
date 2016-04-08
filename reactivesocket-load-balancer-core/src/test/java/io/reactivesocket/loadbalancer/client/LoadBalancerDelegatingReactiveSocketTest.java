@@ -38,6 +38,18 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Created by rroeser on 3/9/16.
  */
 public class LoadBalancerDelegatingReactiveSocketTest {
+    private Payload dummyPayload = new Payload() {
+        @Override
+        public ByteBuffer getData() {
+            return null;
+        }
+
+        @Override
+        public ByteBuffer getMetadata() {
+            return null;
+        }
+    };
+
     @Test
     public void testNoConnectionsAvailable() {
         LoadBalancerDelegatingReactiveSocket<SocketAddress> client =
@@ -52,17 +64,7 @@ public class LoadBalancerDelegatingReactiveSocketTest {
             socketAddress -> null,
             () -> XORShiftRandom.getInstance().randomInt());
 
-        Publisher<Payload> payloadPublisher = client.requestResponse(new Payload() {
-            @Override
-            public ByteBuffer getData() {
-                return null;
-            }
-
-            @Override
-            public ByteBuffer getMetadata() {
-                return null;
-            }
-        });
+        Publisher<Payload> payloadPublisher = client.requestResponse(dummyPayload);
 
         TestSubscriber<Payload> testSubscriber = new TestSubscriber<>();
         RxReactiveStreams.toObservable(payloadPublisher).subscribe(testSubscriber);
@@ -72,7 +74,7 @@ public class LoadBalancerDelegatingReactiveSocketTest {
     }
 
     @Test
-    public void testNoConnectionsAvailableWithZeroAvailibility() {
+    public void testNoConnectionsAvailableWithZeroAvailability() {
 
         ReactiveSocket c = Mockito.mock(ReactiveSocket.class);
         Mockito.when(c.availability()).thenReturn(0.0);
@@ -93,17 +95,7 @@ public class LoadBalancerDelegatingReactiveSocketTest {
                 s.onComplete();
             }, () -> XORShiftRandom.getInstance().randomInt());
 
-        Publisher<Payload> payloadPublisher = client.requestResponse(new Payload() {
-            @Override
-            public ByteBuffer getData() {
-                return null;
-            }
-
-            @Override
-            public ByteBuffer getMetadata() {
-                return null;
-            }
-        });
+        Publisher<Payload> payloadPublisher = client.requestResponse(dummyPayload);
 
         TestSubscriber<Payload> testSubscriber = new TestSubscriber<>();
         RxReactiveStreams.toObservable(payloadPublisher).subscribe(testSubscriber);
@@ -123,17 +115,7 @@ public class LoadBalancerDelegatingReactiveSocketTest {
             .when(c.requestResponse(Mockito.any(Payload.class)))
             .thenReturn(s -> {
                 s.onSubscribe(EmptySubscription.INSTANCE);
-                s.onNext(new Payload() {
-                    @Override
-                    public ByteBuffer getData() {
-                        return null;
-                    }
-
-                    @Override
-                    public ByteBuffer getMetadata() {
-                        return null;
-                    }
-                });
+                s.onNext(dummyPayload);
                 s.onComplete();
             });
 
@@ -153,17 +135,7 @@ public class LoadBalancerDelegatingReactiveSocketTest {
                 s.onComplete();
             }, () -> XORShiftRandom.getInstance().randomInt());
 
-        Publisher<Payload> payloadPublisher = client.requestResponse(new Payload() {
-            @Override
-            public ByteBuffer getData() {
-                return null;
-            }
-
-            @Override
-            public ByteBuffer getMetadata() {
-                return null;
-            }
-        });
+        Publisher<Payload> payloadPublisher = client.requestResponse(dummyPayload);
 
         TestSubscriber<Payload> testSubscriber = new TestSubscriber<>();
         RxReactiveStreams.toObservable(payloadPublisher).subscribe(testSubscriber);
@@ -183,17 +155,7 @@ public class LoadBalancerDelegatingReactiveSocketTest {
             .when(c1.requestResponse(Mockito.any(Payload.class)))
             .thenReturn(s -> {
                 s.onSubscribe(EmptySubscription.INSTANCE);
-                s.onNext(new Payload() {
-                    @Override
-                    public ByteBuffer getData() {
-                        return null;
-                    }
-
-                    @Override
-                    public ByteBuffer getMetadata() {
-                        return null;
-                    }
-                });
+                s.onNext(dummyPayload);
                 s.onComplete();
             });
 
@@ -203,17 +165,7 @@ public class LoadBalancerDelegatingReactiveSocketTest {
             .when(c2.requestResponse(Mockito.any(Payload.class)))
             .thenReturn(s -> {
                 s.onSubscribe(EmptySubscription.INSTANCE);
-                s.onNext(new Payload() {
-                    @Override
-                    public ByteBuffer getData() {
-                        return null;
-                    }
-
-                    @Override
-                    public ByteBuffer getMetadata() {
-                        return null;
-                    }
-                });
+                s.onNext(dummyPayload);
                 s.onComplete();
             });
 
@@ -240,17 +192,7 @@ public class LoadBalancerDelegatingReactiveSocketTest {
                 s.onComplete();
             }, () -> XORShiftRandom.getInstance().randomInt());
 
-        Publisher<Payload> payloadPublisher = client.requestResponse(new Payload() {
-            @Override
-            public ByteBuffer getData() {
-                return null;
-            }
-
-            @Override
-            public ByteBuffer getMetadata() {
-                return null;
-            }
-        });
+        Publisher<Payload> payloadPublisher = client.requestResponse(dummyPayload);
 
         TestSubscriber<Payload> testSubscriber = new TestSubscriber<>();
         RxReactiveStreams.toObservable(payloadPublisher).subscribe(testSubscriber);
@@ -271,17 +213,7 @@ public class LoadBalancerDelegatingReactiveSocketTest {
             .when(c1.requestResponse(Mockito.any(Payload.class)))
             .thenReturn(s -> {
                 s.onSubscribe(EmptySubscription.INSTANCE);
-                s.onNext(new Payload() {
-                    @Override
-                    public ByteBuffer getData() {
-                        return null;
-                    }
-
-                    @Override
-                    public ByteBuffer getMetadata() {
-                        return null;
-                    }
-                });
+                s.onNext(dummyPayload);
                 s.onComplete();
             });
 
@@ -291,17 +223,7 @@ public class LoadBalancerDelegatingReactiveSocketTest {
             .when(c2.requestResponse(Mockito.any(Payload.class)))
             .thenReturn(s -> {
                 s.onSubscribe(EmptySubscription.INSTANCE);
-                s.onNext(new Payload() {
-                    @Override
-                    public ByteBuffer getData() {
-                        return null;
-                    }
-
-                    @Override
-                    public ByteBuffer getMetadata() {
-                        return null;
-                    }
-                });
+                s.onNext(dummyPayload);
                 s.onComplete();
             });
 
@@ -311,17 +233,7 @@ public class LoadBalancerDelegatingReactiveSocketTest {
             .when(c3.requestResponse(Mockito.any(Payload.class)))
             .thenReturn(s -> {
                 s.onSubscribe(EmptySubscription.INSTANCE);
-                s.onNext(new Payload() {
-                    @Override
-                    public ByteBuffer getData() {
-                        return null;
-                    }
-
-                    @Override
-                    public ByteBuffer getMetadata() {
-                        return null;
-                    }
-                });
+                s.onNext(dummyPayload);
                 s.onComplete();
             });
 
@@ -331,17 +243,7 @@ public class LoadBalancerDelegatingReactiveSocketTest {
             .when(c4.requestResponse(Mockito.any(Payload.class)))
             .thenReturn(s -> {
                 s.onSubscribe(EmptySubscription.INSTANCE);
-                s.onNext(new Payload() {
-                    @Override
-                    public ByteBuffer getData() {
-                        return null;
-                    }
-
-                    @Override
-                    public ByteBuffer getMetadata() {
-                        return null;
-                    }
-                });
+                s.onNext(dummyPayload);
                 s.onComplete();
             });
 
@@ -374,17 +276,7 @@ public class LoadBalancerDelegatingReactiveSocketTest {
                 s.onComplete();
             }, () -> XORShiftRandom.getInstance().randomInt());
 
-        Publisher<Payload> payloadPublisher = client.requestResponse(new Payload() {
-            @Override
-            public ByteBuffer getData() {
-                return null;
-            }
-
-            @Override
-            public ByteBuffer getMetadata() {
-                return null;
-            }
-        });
+        Publisher<Payload> payloadPublisher = client.requestResponse(dummyPayload);
 
         TestSubscriber<Payload> testSubscriber = new TestSubscriber<>();
         RxReactiveStreams.toObservable(payloadPublisher).subscribe(testSubscriber);
@@ -408,17 +300,7 @@ public class LoadBalancerDelegatingReactiveSocketTest {
             .when(c1.requestResponse(Mockito.any(Payload.class)))
             .thenReturn(s -> {
                 s.onSubscribe(EmptySubscription.INSTANCE);
-                s.onNext(new Payload() {
-                    @Override
-                    public ByteBuffer getData() {
-                        return null;
-                    }
-
-                    @Override
-                    public ByteBuffer getMetadata() {
-                        return null;
-                    }
-                });
+                s.onNext(dummyPayload);
                 s.onComplete();
             });
 
@@ -428,22 +310,12 @@ public class LoadBalancerDelegatingReactiveSocketTest {
             .when(c2.requestResponse(Mockito.any(Payload.class)))
             .thenReturn(s -> {
                 s.onSubscribe(EmptySubscription.INSTANCE);
-                s.onNext(new Payload() {
-                    @Override
-                    public ByteBuffer getData() {
-                        return null;
-                    }
-
-                    @Override
-                    public ByteBuffer getMetadata() {
-                        return null;
-                    }
-                });
+                s.onNext(dummyPayload);
                 s.onComplete();
             });
 
         for (int i = 0; i < 50; i++) {
-            availibleConnections(c1, c2, closedConnectionsProvider);
+            availableConnections(c1, c2, closedConnectionsProvider);
         }
 
         Mockito.verify(c1, Mockito.atLeast(1)).requestResponse(Mockito.any(Payload.class));
@@ -474,17 +346,7 @@ public class LoadBalancerDelegatingReactiveSocketTest {
             .when(c1.requestResponse(Mockito.any(Payload.class)))
             .thenReturn(s -> {
                 s.onSubscribe(EmptySubscription.INSTANCE);
-                s.onNext(new Payload() {
-                    @Override
-                    public ByteBuffer getData() {
-                        return null;
-                    }
-
-                    @Override
-                    public ByteBuffer getMetadata() {
-                        return null;
-                    }
-                });
+                s.onNext(dummyPayload);
                 c1Count.incrementAndGet();
                 s.onComplete();
             });
@@ -495,17 +357,7 @@ public class LoadBalancerDelegatingReactiveSocketTest {
             .when(c2.requestResponse(Mockito.any(Payload.class)))
             .thenReturn(s -> {
                 s.onSubscribe(EmptySubscription.INSTANCE);
-                s.onNext(new Payload() {
-                    @Override
-                    public ByteBuffer getData() {
-                        return null;
-                    }
-
-                    @Override
-                    public ByteBuffer getMetadata() {
-                        return null;
-                    }
-                });
+                s.onNext(dummyPayload);
                 c2Count.incrementAndGet();
                 s.onComplete();
             });
@@ -515,10 +367,10 @@ public class LoadBalancerDelegatingReactiveSocketTest {
                 tripped.set(true);
             }
 
-            availibleConnections(c1, c2, closedConnectionsProvider);
+            availableConnections(c1, c2, closedConnectionsProvider);
         }
 
-        Mockito.verify(c1, Mockito.atLeast(1)).requestResponse(Mockito.any(Payload.class));
+        Mockito.verify(c1, Mockito.never()).requestResponse(Mockito.any(Payload.class));
         Mockito.verify(c2, Mockito.atLeast(1)).requestResponse(Mockito.any(Payload.class));
 
         Assert.assertTrue(c1Count.get() < c2Count.get());
@@ -526,7 +378,7 @@ public class LoadBalancerDelegatingReactiveSocketTest {
     }
 
     @Test
-    public void testHigherAvailibleIsCalledMoreTimes() {
+    public void testHigherAvailableIsCalledMoreTimes() {
         Publisher<List<SocketAddress>> closedConnectionsProvider = s -> {
             s.onSubscribe(EmptySubscription.INSTANCE);
             s.onNext(new ArrayList<SocketAddress>());
@@ -541,17 +393,7 @@ public class LoadBalancerDelegatingReactiveSocketTest {
             .when(c1.requestResponse(Mockito.any(Payload.class)))
             .thenReturn(s -> {
                 s.onSubscribe(EmptySubscription.INSTANCE);
-                s.onNext(new Payload() {
-                    @Override
-                    public ByteBuffer getData() {
-                        return null;
-                    }
-
-                    @Override
-                    public ByteBuffer getMetadata() {
-                        return null;
-                    }
-                });
+                s.onNext(dummyPayload);
                 c1Count.incrementAndGet();
                 s.onComplete();
             });
@@ -562,33 +404,23 @@ public class LoadBalancerDelegatingReactiveSocketTest {
             .when(c2.requestResponse(Mockito.any(Payload.class)))
             .thenReturn(s -> {
                 s.onSubscribe(EmptySubscription.INSTANCE);
-                s.onNext(new Payload() {
-                    @Override
-                    public ByteBuffer getData() {
-                        return null;
-                    }
-
-                    @Override
-                    public ByteBuffer getMetadata() {
-                        return null;
-                    }
-                });
+                s.onNext(dummyPayload);
                 c2Count.incrementAndGet();
                 s.onComplete();
             });
 
         for (int i = 0; i < 50; i++) {
-            availibleConnections(c1, c2, closedConnectionsProvider);
+            availableConnections(c1, c2, closedConnectionsProvider);
         }
 
         Mockito.verify(c1, Mockito.atLeast(1)).requestResponse(Mockito.any(Payload.class));
-        Mockito.verify(c2, Mockito.atLeast(1)).requestResponse(Mockito.any(Payload.class));
+        Mockito.verify(c2, Mockito.atLeast(0)).requestResponse(Mockito.any(Payload.class));
 
         Assert.assertTrue(c1Count.get() > c2Count.get());
 
     }
 
-    public void availibleConnections(ReactiveSocket c1, ReactiveSocket c2, Publisher<List<SocketAddress>> closedConnectionsProvider) {
+    public void availableConnections(ReactiveSocket c1, ReactiveSocket c2, Publisher<List<SocketAddress>> closedConnectionsProvider) {
 
         ReactiveSocket c3 = Mockito.mock(ReactiveSocket.class);
         Mockito.when(c3.availability()).thenReturn(1.0);
@@ -596,17 +428,7 @@ public class LoadBalancerDelegatingReactiveSocketTest {
             .when(c3.requestResponse(Mockito.any(Payload.class)))
             .thenReturn(s -> {
                 s.onSubscribe(EmptySubscription.INSTANCE);
-                s.onNext(new Payload() {
-                    @Override
-                    public ByteBuffer getData() {
-                        return null;
-                    }
-
-                    @Override
-                    public ByteBuffer getMetadata() {
-                        return null;
-                    }
-                });
+                s.onNext(dummyPayload);
                 s.onComplete();
             });
 
@@ -616,17 +438,7 @@ public class LoadBalancerDelegatingReactiveSocketTest {
             .when(c4.requestResponse(Mockito.any(Payload.class)))
             .thenReturn(s -> {
                 s.onSubscribe(EmptySubscription.INSTANCE);
-                s.onNext(new Payload() {
-                    @Override
-                    public ByteBuffer getData() {
-                        return null;
-                    }
-
-                    @Override
-                    public ByteBuffer getMetadata() {
-                        return null;
-                    }
-                });
+                s.onNext(dummyPayload);
                 s.onComplete();
             });
 
@@ -654,17 +466,7 @@ public class LoadBalancerDelegatingReactiveSocketTest {
                 s.onComplete();
             }, () -> XORShiftRandom.getInstance().randomInt());
 
-        Publisher<Payload> payloadPublisher = client.requestResponse(new Payload() {
-            @Override
-            public ByteBuffer getData() {
-                return null;
-            }
-
-            @Override
-            public ByteBuffer getMetadata() {
-                return null;
-            }
-        });
+        Publisher<Payload> payloadPublisher = client.requestResponse(dummyPayload);
 
         TestSubscriber<Payload> testSubscriber = new TestSubscriber<>();
         RxReactiveStreams.toObservable(payloadPublisher).subscribe(testSubscriber);

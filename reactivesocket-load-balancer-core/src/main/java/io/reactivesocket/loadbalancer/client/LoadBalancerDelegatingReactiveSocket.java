@@ -43,7 +43,22 @@ public class LoadBalancerDelegatingReactiveSocket<T> implements DelegatingReacti
 
     private final NumberGenerator numberGenerator;
 
-    private static final NoAvailableReactiveSocketClientsException NO_AVAILABLE_REACTIVE_SOCKET_CLIENTS_EXCEPTION = new NoAvailableReactiveSocketClientsException();
+    private static final NoAvailableReactiveSocketClientsException NO_AVAILABLE_REACTIVE_SOCKET_CLIENTS_EXCEPTION =
+        new NoAvailableReactiveSocketClientsException();
+
+    private static final double MAX_PROBABILITY_PICKING_UNAVAILABLE = .01; // p
+    private static final double PERCENTAGE_OF_UNAVAILABLE_SERVERS = .25;   // b
+
+    // `Effort` is computed so that we have a probability `p` of NOT finding a good server
+    // even though there's only `b%` of unavailable servers.
+    // Here, if we want 1% probability of not finding a suitable server when 25% of the cluster is
+    // unavailable, then `effort = 6`
+    //
+    // (The formula is derived from simple probability)
+    private static final int EFFORT = (int) Math.ceil(
+        Math.log(MAX_PROBABILITY_PICKING_UNAVAILABLE)
+            / Math.log((PERCENTAGE_OF_UNAVAILABLE_SERVERS * (2 - PERCENTAGE_OF_UNAVAILABLE_SERVERS )))
+    );
 
     public LoadBalancerDelegatingReactiveSocket(Supplier<Publisher<List<T>>> connectionsProvider,
                                                 Supplier<Publisher<List<T>>> closedConnectionsProvider,
@@ -81,49 +96,32 @@ public class LoadBalancerDelegatingReactiveSocket<T> implements DelegatingReacti
                         } else if (size == 1) {
                             ReactiveSocket reactiveSocket = getReactiveSocketClient(connections.get(0));
                             // If the one connection isn't available return an exception
-                            if (reactiveSocket.availability() == 0) {
+                            if (reactiveSocket.availability() == 0.0) {
                                 onError(NO_AVAILABLE_REACTIVE_SOCKET_CLIENTS_EXCEPTION);
                             } else {
                                 action.call(s, reactiveSocket, payload);
                             }
-                        } else if (size == 2) {
-                            T connection1 = connections.get(0);
-                            T connection2 = connections.get(1);
+                        } else {
+                            ReactiveSocket rsc1 = null;
+                            ReactiveSocket rsc2 = null;
+                            for (int i = 0; i < EFFORT; i++) {
+                                int i1 = numberGenerator.nextInt() % size;
+                                int i2 = numberGenerator.nextInt() % (size - 1);
+                                if (i2 >= i1) {
+                                    i2 = (i2 + 1) % size;
+                                }
+                                rsc1 = getRandomReactiveSocketClient(connections, i1);
+                                rsc2 = getRandomReactiveSocketClient(connections, i2);
+                                if (rsc1.availability() > 0.0 && rsc2.availability() > 0.0)
+                                    break;
+                            }
 
-                            ReactiveSocket rsc1 = getReactiveSocketClient(connection1);
-                            ReactiveSocket rsc2 = getReactiveSocketClient(connection2);
-
-                            if (rsc1.availability() == 0 && rsc2.availability() == 0) {
-                                s.onError(NO_AVAILABLE_REACTIVE_SOCKET_CLIENTS_EXCEPTION);
+                            if (rsc1.availability() == 0.0 && rsc2.availability() == 0.0) {
+                                onError(NO_AVAILABLE_REACTIVE_SOCKET_CLIENTS_EXCEPTION);
                             } else if (rsc1.availability() > rsc2.availability()) {
                                 action.call(s, rsc1, payload);
                             } else {
                                 action.call(s, rsc2, payload);
-                            }
-                        } else {
-                            ReactiveSocket rsc1 = null;
-                            ReactiveSocket rsc2 = null;
-                            for (int i = 0; i < 5; i++) {
-                                if (rsc1 == null) rsc1 = getRandomReactiveSocketClient(connections, size);
-                                if (rsc2 == null) rsc2 = getRandomReactiveSocketClient(connections, size);
-                                if (rsc1 == rsc2) rsc2 = null;
-                                else if (rsc1 != null && rsc2 != null) break;
-                            }
-
-                            if (rsc1 != null && rsc2 != null) {
-                                if (rsc1.availability() == 0 && rsc2.availability() == 0) {
-                                    onError(NO_AVAILABLE_REACTIVE_SOCKET_CLIENTS_EXCEPTION);
-                                } else if (rsc1.availability() > rsc2.availability()) {
-                                    action.call(s, rsc1, payload);
-                                } else {
-                                    action.call(s, rsc2, payload);
-                                }
-                            } else if (rsc1 != null && rsc1.availability() > 0) {
-                                action.call(s, rsc1, payload);
-                            } else if (rsc2 != null && rsc2.availability() > 0) {
-                                action.call(s, rsc2, payload);
-                            } else {
-                                onError(NO_AVAILABLE_REACTIVE_SOCKET_CLIENTS_EXCEPTION);
                             }
                         }
                     }
@@ -343,12 +341,12 @@ public class LoadBalancerDelegatingReactiveSocket<T> implements DelegatingReacti
         return null;
     }
 
-    ReactiveSocket getRandomReactiveSocketClient(List<T> connections, int size) {
-        T connection = connections.get(numberGenerator.nextInt() % size);
+    private ReactiveSocket getRandomReactiveSocketClient(List<T> connections, int index) {
+        T connection = connections.get(index);
         return getReactiveSocketClient(connection);
     }
 
-    ReactiveSocket getReactiveSocketClient(T connection) {
+    private ReactiveSocket getReactiveSocketClient(T connection) {
         return clientMap.computeIfAbsent(connection, reactiveSocketClientFactory::callAndWait);
     }
 
