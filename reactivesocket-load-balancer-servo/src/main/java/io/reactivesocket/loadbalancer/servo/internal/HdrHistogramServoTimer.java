@@ -16,7 +16,6 @@
 package io.reactivesocket.loadbalancer.servo.internal;
 
 import com.netflix.servo.tag.Tag;
-import org.HdrHistogram.ConcurrentHistogram;
 import org.HdrHistogram.Histogram;
 
 import java.io.ByteArrayOutputStream;
@@ -31,7 +30,7 @@ import java.util.concurrent.TimeUnit;
  * The buckets are min, max, 50%, 90%, 99%, 99.9%, and 99.99%
  */
 public class HdrHistogramServoTimer {
-    private final Histogram histogram;
+    private final ThreadLocal<Histogram> histogramThreadLocal = ThreadLocal.withInitial(() -> new Histogram(TimeUnit.MINUTES.toNanos(1), 2));
 
     private ThreadLocalAdderCounter min;
 
@@ -48,7 +47,6 @@ public class HdrHistogramServoTimer {
     private ThreadLocalAdderCounter p99_99;
 
     private HdrHistogramServoTimer(String label) {
-        this.histogram = new ConcurrentHistogram(TimeUnit.MINUTES.toNanos(1), 2);
 
         min = ThreadLocalAdderCounter.newThreadLocalAdderCounter(label + "_min");
         max = ThreadLocalAdderCounter.newThreadLocalAdderCounter(label + "_max");
@@ -61,7 +59,6 @@ public class HdrHistogramServoTimer {
 
 
     private HdrHistogramServoTimer(String label, List<Tag> tags) {
-        this.histogram = new ConcurrentHistogram(TimeUnit.MINUTES.toNanos(1), 2);
 
         min = ThreadLocalAdderCounter.newThreadLocalAdderCounter(label + "_min", tags);
         max = ThreadLocalAdderCounter.newThreadLocalAdderCounter(label + "_max", tags);
@@ -89,6 +86,7 @@ public class HdrHistogramServoTimer {
      * @param value the value to update
      */
     public void record(long value) {
+        Histogram histogram = histogramThreadLocal.get();
         histogram.recordValue(value);
 
         min.increment(histogram.getMinValue());
@@ -108,7 +106,7 @@ public class HdrHistogramServoTimer {
         String retVal = null;
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         PrintStream ps = new PrintStream(bos);
-        histogram.outputPercentileDistribution(ps, 1000.0);
+        histogramThreadLocal.get().outputPercentileDistribution(ps, 1000.0);
 
         try {
             retVal = bos.toString(Charset.defaultCharset().name());
