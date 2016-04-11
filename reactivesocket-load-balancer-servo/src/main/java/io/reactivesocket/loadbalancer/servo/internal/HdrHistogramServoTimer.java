@@ -16,6 +16,7 @@
 package io.reactivesocket.loadbalancer.servo.internal;
 
 import com.netflix.servo.tag.Tag;
+import org.HdrHistogram.ConcurrentHistogram;
 import org.HdrHistogram.Histogram;
 
 import java.io.ByteArrayOutputStream;
@@ -23,14 +24,36 @@ import java.io.PrintStream;
 import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
 /**
  * Captures a HdrHistogram and sends it to pre-defined Server Counters.
  * The buckets are min, max, 50%, 90%, 99%, 99.9%, and 99.99%
  */
 public class HdrHistogramServoTimer {
-    private final ThreadLocal<Histogram> histogramThreadLocal = ThreadLocal.withInitial(() -> new Histogram(TimeUnit.MINUTES.toNanos(1), 2));
+    private final Histogram histogram = new ConcurrentHistogram(TimeUnit.MINUTES.toNanos(1), 2);
+
+    private static final String hdrHistogramServoTimerExecutorSupplier = System.getProperty("hdrHistogramServoTimerExecutorSupplier");
+
+    private static final Supplier<ScheduledExecutorService> SCHEDULED_EXECUTOR_SERVICE;
+
+    static {
+        try {
+            if (hdrHistogramServoTimerExecutorSupplier != null && !hdrHistogramServoTimerExecutorSupplier.isEmpty()) {
+                Class<?> aClass = Class.forName(hdrHistogramServoTimerExecutorSupplier, true, Thread.currentThread().getContextClassLoader());
+                Object o = aClass.newInstance();
+                SCHEDULED_EXECUTOR_SERVICE = (Supplier<ScheduledExecutorService>) o;
+            } else {
+                final ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(r -> new Thread(r, "hdr-histogram-servo-timer"));
+                SCHEDULED_EXECUTOR_SERVICE = () -> scheduledExecutorService;
+            }
+        } catch (Throwable t) {
+            throw new RuntimeException(t);
+        }
+    }
 
     private ThreadLocalAdderCounter min;
 
@@ -55,11 +78,21 @@ public class HdrHistogramServoTimer {
         p99 = ThreadLocalAdderCounter.newThreadLocalAdderCounter(label + "_p99");
         p99_9 = ThreadLocalAdderCounter.newThreadLocalAdderCounter(label + "_p99_9");
         p99_99 = ThreadLocalAdderCounter.newThreadLocalAdderCounter(label + "_p99_99");
+
+        SCHEDULED_EXECUTOR_SERVICE.get().scheduleAtFixedRate(() -> {
+            min.increment(histogram.getMinValue());
+            max.increment(histogram.getMaxValue());
+
+            p50.increment(histogram.getValueAtPercentile(50));
+            p90.increment(histogram.getValueAtPercentile(90));
+            p99.increment(histogram.getValueAtPercentile(99));
+            p99_9.increment(histogram.getValueAtPercentile(99.9));
+            p99_99.increment(histogram.getValueAtPercentile(99.99));
+        }, 1, 1, TimeUnit.SECONDS);
     }
 
 
     private HdrHistogramServoTimer(String label, List<Tag> tags) {
-
         min = ThreadLocalAdderCounter.newThreadLocalAdderCounter(label + "_min", tags);
         max = ThreadLocalAdderCounter.newThreadLocalAdderCounter(label + "_max", tags);
         p50 = ThreadLocalAdderCounter.newThreadLocalAdderCounter(label + "_p50", tags);
@@ -67,6 +100,17 @@ public class HdrHistogramServoTimer {
         p99 = ThreadLocalAdderCounter.newThreadLocalAdderCounter(label + "_p99", tags);
         p99_9 = ThreadLocalAdderCounter.newThreadLocalAdderCounter(label + "_p99_9", tags);
         p99_99 = ThreadLocalAdderCounter.newThreadLocalAdderCounter(label + "_p99_99", tags);
+
+        SCHEDULED_EXECUTOR_SERVICE.get().scheduleAtFixedRate(() -> {
+            min.increment(histogram.getMinValue());
+            max.increment(histogram.getMaxValue());
+
+            p50.increment(histogram.getValueAtPercentile(50));
+            p90.increment(histogram.getValueAtPercentile(90));
+            p99.increment(histogram.getValueAtPercentile(99));
+            p99_9.increment(histogram.getValueAtPercentile(99.9));
+            p99_99.increment(histogram.getValueAtPercentile(99.99));
+        }, 1, 1, TimeUnit.SECONDS);
     }
 
     public static HdrHistogramServoTimer newInstance(String label) {
@@ -86,17 +130,7 @@ public class HdrHistogramServoTimer {
      * @param value the value to update
      */
     public void record(long value) {
-        Histogram histogram = histogramThreadLocal.get();
         histogram.recordValue(value);
-
-        min.increment(histogram.getMinValue());
-        max.increment(histogram.getMaxValue());
-
-        p50.increment(histogram.getValueAtPercentile(50));
-        p90.increment(histogram.getValueAtPercentile(90));
-        p99.increment(histogram.getValueAtPercentile(99));
-        p99_9.increment(histogram.getValueAtPercentile(99.9));
-        p99_99.increment(histogram.getValueAtPercentile(99.99));
     }
 
     /**
@@ -106,7 +140,7 @@ public class HdrHistogramServoTimer {
         String retVal = null;
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         PrintStream ps = new PrintStream(bos);
-        histogramThreadLocal.get().outputPercentileDistribution(ps, 1000.0);
+        histogram.outputPercentileDistribution(ps, 1000.0);
 
         try {
             retVal = bos.toString(Charset.defaultCharset().name());

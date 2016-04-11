@@ -172,7 +172,7 @@ public class ServoMetricsDelegatingReactiveSocketTest {
     }
 
     @Test
-    public void testHistogram() {
+    public void testHistogram() throws Exception {
         ServoMetricsDelegatingReactiveSocket client = new ServoMetricsDelegatingReactiveSocket(new DelegatingReactiveSocket() {
             @Override
             public Publisher<Void> metadataPush(Payload payload) {
@@ -248,6 +248,8 @@ public class ServoMetricsDelegatingReactiveSocketTest {
             subscriber.awaitTerminalEvent();
             subscriber.assertNoErrors();
         }
+
+        Thread.sleep(3_000);
 
         Assert.assertEquals(10, client.success.get());
         Assert.assertEquals(0, client.failure.get());
