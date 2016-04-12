@@ -443,7 +443,8 @@ public class LoadBalancerDelegatingReactiveSocketTest {
             });
 
         LoadBalancerDelegatingReactiveSocket<SocketAddress> client
-            = new LoadBalancerDelegatingReactiveSocket<>(() -> s -> {
+            = new LoadBalancerDelegatingReactiveSocket<>(
+            () -> s -> {
                 ArrayList<SocketAddress> socketAddresses = new ArrayList<>();
                 socketAddresses.add(InetSocketAddress.createUnresolved("localhost1", 8080));
                 socketAddresses.add(InetSocketAddress.createUnresolved("localhost2", 8080));
@@ -451,7 +452,9 @@ public class LoadBalancerDelegatingReactiveSocketTest {
                 socketAddresses.add(InetSocketAddress.createUnresolved("localhost4", 8080));
                 s.onSubscribe(EmptySubscription.INSTANCE);
                 s.onNext(socketAddresses);
-            }, () -> closedConnectionsProvider, socketAddress -> s -> {
+            },
+            () -> closedConnectionsProvider,
+            socketAddress -> s -> {
                 s.onSubscribe(EmptySubscription.INSTANCE);
                 InetSocketAddress inetSocketAddress = (InetSocketAddress) socketAddress;
                 if (inetSocketAddress.getHostName().equals("localhost1")) {
@@ -464,7 +467,8 @@ public class LoadBalancerDelegatingReactiveSocketTest {
                     s.onNext(c4);
                 }
                 s.onComplete();
-            }, () -> XORShiftRandom.getInstance().randomInt());
+            },
+            () -> XORShiftRandom.getInstance().randomInt());
 
         Publisher<Payload> payloadPublisher = client.requestResponse(dummyPayload);
 

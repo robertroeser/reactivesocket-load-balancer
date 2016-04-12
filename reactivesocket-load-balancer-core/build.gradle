@@ -1,0 +1,3 @@
+dependencies {
+    testCompile 'io.reactivesocket:reactivesocket-local:latest.release'
+}
