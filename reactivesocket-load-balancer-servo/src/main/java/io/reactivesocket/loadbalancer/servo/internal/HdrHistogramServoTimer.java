@@ -70,6 +70,7 @@ public class HdrHistogramServoTimer {
     private ThreadLocalAdderCounter p99_99;
 
     private HdrHistogramServoTimer(String label) {
+        histogram.setAutoResize(true);
 
         min = ThreadLocalAdderCounter.newThreadLocalAdderCounter(label + "_min");
         max = ThreadLocalAdderCounter.newThreadLocalAdderCounter(label + "_max");
@@ -93,6 +94,8 @@ public class HdrHistogramServoTimer {
 
 
     private HdrHistogramServoTimer(String label, List<Tag> tags) {
+        histogram.setAutoResize(true);
+
         min = ThreadLocalAdderCounter.newThreadLocalAdderCounter(label + "_min", tags);
         max = ThreadLocalAdderCounter.newThreadLocalAdderCounter(label + "_max", tags);
         p50 = ThreadLocalAdderCounter.newThreadLocalAdderCounter(label + "_p50", tags);
