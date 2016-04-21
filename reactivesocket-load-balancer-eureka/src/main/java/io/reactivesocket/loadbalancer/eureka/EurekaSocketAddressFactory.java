@@ -142,9 +142,7 @@ public class EurekaSocketAddressFactory {
                 }
 
                 if (!found) {
-                    if (logger.isDebugEnabled()) {
-                        logger.debug("Removing socket {}", address);
-                    }
+                    logger.info("Removing socket {}", address);
 
                     currentPrunedList.add(address);
                 }
@@ -169,9 +167,7 @@ public class EurekaSocketAddressFactory {
         while (pool.size() < poolSize && iter.hasNext()) {
             InetSocketAddress address = instanceInfoToSocketAddress(iter.next());
             if (pool.add(address)) {
-                if (logger.isDebugEnabled()) {
-                    logger.debug("Address {} not found in pool - adding", address);
-                }
+                logger.info("Address {} not found in pool - adding", address);
             }
         }
     }
