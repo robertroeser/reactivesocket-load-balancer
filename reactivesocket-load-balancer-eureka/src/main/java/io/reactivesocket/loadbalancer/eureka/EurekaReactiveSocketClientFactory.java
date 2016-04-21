@@ -16,6 +16,7 @@
 package io.reactivesocket.loadbalancer.eureka;
 
 import com.netflix.discovery.DiscoveryClient;
+import com.netflix.servo.tag.BasicTagList;
 import io.reactivesocket.ReactiveSocket;
 import io.reactivesocket.ReactiveSocketFactory;
 import io.reactivesocket.internal.rx.EmptySubscription;
@@ -24,6 +25,7 @@ import io.reactivesocket.loadbalancer.client.FailureAwareDelegatingReactiveSocke
 import io.reactivesocket.loadbalancer.client.InitializingDelegatingReactiveSocket;
 import io.reactivesocket.loadbalancer.client.LoadBalancerDelegatingReactiveSocket;
 import io.reactivesocket.loadbalancer.client.LoadEstimatorDelegatingReactiveSocket;
+import io.reactivesocket.loadbalancer.servo.AvailabilityMetricReactiveSocket;
 import io.reactivesocket.loadbalancer.servo.ServoMetricsDelegatingReactiveSocket;
 import org.reactivestreams.Publisher;
 
@@ -67,9 +69,24 @@ public class EurekaReactiveSocketClientFactory implements ReactiveSocketFactory<
                     FailureAwareDelegatingReactiveSocket failureAwareReactiveSocketClient
                         = new FailureAwareDelegatingReactiveSocket(initializingReactiveSocketClient, config.failureWindow, config.failureWindowUnit);
 
+                    BasicTagList tags = BasicTagList
+                        .of(
+                            "socketAddress", socketAddress.toString(),
+                            "vip", config.vip
+                        );
+
+                    AvailabilityMetricReactiveSocket failureMetric
+                        = new AvailabilityMetricReactiveSocket(failureAwareReactiveSocketClient, "failureAvailability", tags);
+
+                    LoadEstimatorDelegatingReactiveSocket loadEstimatorDelegatingReactiveSocket
+                        = new LoadEstimatorDelegatingReactiveSocket(failureMetric, config.tauUp, config.tauDown);
+
+                    AvailabilityMetricReactiveSocket loadEastimatorMetric
+                        = new AvailabilityMetricReactiveSocket(loadEstimatorDelegatingReactiveSocket, "loadEstimatorAvailability", tags);
+
                     return subscriber -> {
                         subscriber.onSubscribe(EmptySubscription.INSTANCE);
-                        subscriber.onNext(new LoadEstimatorDelegatingReactiveSocket(failureAwareReactiveSocketClient, config.tauUp, config.tauDown));
+                        subscriber.onNext(loadEastimatorMetric);
                         subscriber.onComplete();
                     };
                 },
