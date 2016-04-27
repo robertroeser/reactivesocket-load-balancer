@@ -257,6 +257,6 @@ public class ServoMetricsDelegatingReactiveSocketTest {
         System.out.println(client.timer.histrogramToString());
 
         Assert.assertNotNull(client.timer.histrogramToString());
-        Assert.assertNotEquals(client.timer.getMax(), client.timer.getMin());
+        Assert.assertNotEquals(client.timer.getMax().getValue(), client.timer.getMin().getValue());
     }
 }
