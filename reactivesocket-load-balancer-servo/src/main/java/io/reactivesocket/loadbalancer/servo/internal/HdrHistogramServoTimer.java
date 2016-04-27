@@ -15,6 +15,7 @@
  */
 package io.reactivesocket.loadbalancer.servo.internal;
 
+import com.netflix.servo.monitor.MonitorConfig;
 import com.netflix.servo.tag.Tag;
 import org.HdrHistogram.ConcurrentHistogram;
 import org.HdrHistogram.Histogram;
@@ -24,10 +25,7 @@ import java.io.PrintStream;
 import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
 
 /**
  * Captures a HdrHistogram and sends it to pre-defined Server Counters.
@@ -36,84 +34,46 @@ import java.util.function.Supplier;
 public class HdrHistogramServoTimer {
     private final Histogram histogram = new ConcurrentHistogram(TimeUnit.MINUTES.toNanos(1), 2);
 
-    private static final String hdrHistogramServoTimerExecutorSupplier = System.getProperty("hdrHistogramServoTimerExecutorSupplier");
+    private HdrHistogramMinGauge min;
 
-    private static final Supplier<ScheduledExecutorService> SCHEDULED_EXECUTOR_SERVICE;
+    private HdrHistogramMaxGauge max;
 
-    static {
-        try {
-            if (hdrHistogramServoTimerExecutorSupplier != null && !hdrHistogramServoTimerExecutorSupplier.isEmpty()) {
-                Class<?> aClass = Class.forName(hdrHistogramServoTimerExecutorSupplier, true, Thread.currentThread().getContextClassLoader());
-                Object o = aClass.newInstance();
-                SCHEDULED_EXECUTOR_SERVICE = (Supplier<ScheduledExecutorService>) o;
-            } else {
-                final ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(r -> new Thread(r, "hdr-histogram-servo-timer"));
-                SCHEDULED_EXECUTOR_SERVICE = () -> scheduledExecutorService;
-            }
-        } catch (Throwable t) {
-            throw new RuntimeException(t);
-        }
-    }
+    private HdrHistogramGauge p50;
 
-    private ThreadLocalAdderCounter min;
+    private HdrHistogramGauge p90;
 
-    private ThreadLocalAdderCounter max;
+    private HdrHistogramGauge p99;
 
-    private ThreadLocalAdderCounter p50;
+    private HdrHistogramGauge p99_9;
 
-    private ThreadLocalAdderCounter p90;
-
-    private ThreadLocalAdderCounter p99;
-
-    private ThreadLocalAdderCounter p99_9;
-
-    private ThreadLocalAdderCounter p99_99;
+    private HdrHistogramGauge p99_99;
 
     private HdrHistogramServoTimer(String label) {
         histogram.setAutoResize(true);
 
-        min = ThreadLocalAdderCounter.newThreadLocalAdderCounter(label + "_min");
-        max = ThreadLocalAdderCounter.newThreadLocalAdderCounter(label + "_max");
-        p50 = ThreadLocalAdderCounter.newThreadLocalAdderCounter(label + "_p50");
-        p90 = ThreadLocalAdderCounter.newThreadLocalAdderCounter(label + "_p90");
-        p99 = ThreadLocalAdderCounter.newThreadLocalAdderCounter(label + "_p99");
-        p99_9 = ThreadLocalAdderCounter.newThreadLocalAdderCounter(label + "_p99_9");
-        p99_99 = ThreadLocalAdderCounter.newThreadLocalAdderCounter(label + "_p99_99");
+        min = new HdrHistogramMinGauge(MonitorConfig.builder(label + "_min").build(), histogram);
+        max = new HdrHistogramMaxGauge(MonitorConfig.builder(label + "_max").build(), histogram);
 
-        SCHEDULED_EXECUTOR_SERVICE.get().scheduleAtFixedRate(() -> {
-            min.increment(histogram.getMinValue());
-            max.increment(histogram.getMaxValue());
-
-            p50.increment(histogram.getValueAtPercentile(50));
-            p90.increment(histogram.getValueAtPercentile(90));
-            p99.increment(histogram.getValueAtPercentile(99));
-            p99_9.increment(histogram.getValueAtPercentile(99.9));
-            p99_99.increment(histogram.getValueAtPercentile(99.99));
-        }, 1, 1, TimeUnit.SECONDS);
+        p50 = new HdrHistogramGauge(MonitorConfig.builder(label + "_max").build(), histogram, 50);
+        p90 = new HdrHistogramGauge(MonitorConfig.builder(label + "_max").build(), histogram, 90);
+        p99 = new HdrHistogramGauge(MonitorConfig.builder(label + "_max").build(), histogram, 99);
+        p99_9 = new HdrHistogramGauge(MonitorConfig.builder(label + "_max").build(), histogram, 99.9);
+        p99_99 = new HdrHistogramGauge(MonitorConfig.builder(label + "_max").build(), histogram, 99.99);
     }
 
 
     private HdrHistogramServoTimer(String label, List<Tag> tags) {
         histogram.setAutoResize(true);
 
-        min = ThreadLocalAdderCounter.newThreadLocalAdderCounter(label + "_min", tags);
-        max = ThreadLocalAdderCounter.newThreadLocalAdderCounter(label + "_max", tags);
-        p50 = ThreadLocalAdderCounter.newThreadLocalAdderCounter(label + "_p50", tags);
-        p90 = ThreadLocalAdderCounter.newThreadLocalAdderCounter(label + "_p90", tags);
-        p99 = ThreadLocalAdderCounter.newThreadLocalAdderCounter(label + "_p99", tags);
-        p99_9 = ThreadLocalAdderCounter.newThreadLocalAdderCounter(label + "_p99_9", tags);
-        p99_99 = ThreadLocalAdderCounter.newThreadLocalAdderCounter(label + "_p99_99", tags);
 
-        SCHEDULED_EXECUTOR_SERVICE.get().scheduleAtFixedRate(() -> {
-            min.increment(histogram.getMinValue());
-            max.increment(histogram.getMaxValue());
+        min = new HdrHistogramMinGauge(MonitorConfig.builder(label + "_min").withTags(tags).build(), histogram);
+        max = new HdrHistogramMaxGauge(MonitorConfig.builder(label + "_max").withTags(tags).build(), histogram);
 
-            p50.increment(histogram.getValueAtPercentile(50));
-            p90.increment(histogram.getValueAtPercentile(90));
-            p99.increment(histogram.getValueAtPercentile(99));
-            p99_9.increment(histogram.getValueAtPercentile(99.9));
-            p99_99.increment(histogram.getValueAtPercentile(99.99));
-        }, 1, 1, TimeUnit.SECONDS);
+        p50 = new HdrHistogramGauge(MonitorConfig.builder(label + "_max").withTags(tags).build(), histogram, 50);
+        p90 = new HdrHistogramGauge(MonitorConfig.builder(label + "_max").withTags(tags).build(), histogram, 90);
+        p99 = new HdrHistogramGauge(MonitorConfig.builder(label + "_max").withTags(tags).build(), histogram, 99);
+        p99_9 = new HdrHistogramGauge(MonitorConfig.builder(label + "_max").withTags(tags).build(), histogram, 99.9);
+        p99_99 = new HdrHistogramGauge(MonitorConfig.builder(label + "_max").withTags(tags).build(), histogram, 99.99);
     }
 
     public static HdrHistogramServoTimer newInstance(String label) {
@@ -140,7 +100,7 @@ public class HdrHistogramServoTimer {
      * Prints the current {@link Histogram} to a String
      */
     public String histrogramToString()  {
-        String retVal = null;
+        String retVal;
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         PrintStream ps = new PrintStream(bos);
         histogram.outputPercentileDistribution(ps, 1000.0);
@@ -154,32 +114,11 @@ public class HdrHistogramServoTimer {
         return retVal;
     }
 
-    public long getMin() {
-        return min.get();
+    public HdrHistogramMaxGauge getMax() {
+        return max;
     }
 
-    public long getMax() {
-        return max.get();
+    public HdrHistogramMinGauge getMin() {
+        return min;
     }
-
-    public long getP50() {
-        return p50.get();
-    }
-
-    public long getP90() {
-        return p90.get();
-    }
-
-    public long getP99() {
-        return p99.get();
-    }
-
-    public long getP99_9() {
-        return p99_9.get();
-    }
-
-    public long getP99_99() {
-        return p99_99.get();
-    }
-
 }
