@@ -64,6 +64,11 @@ public interface DelegatingReactiveSocket extends ReactiveSocket {
     default void close() throws Exception {
     }
 
+    @Override
+    default void onShutdown(Completable c) {
+
+    }
+
     /**
      * Convenient way to delegate your request/response to the another ReactiveSocketClient. You call this inside a
      * {@link Publisher}

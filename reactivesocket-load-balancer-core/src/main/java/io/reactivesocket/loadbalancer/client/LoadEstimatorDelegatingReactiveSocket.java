@@ -18,6 +18,7 @@ package io.reactivesocket.loadbalancer.client;
 import io.reactivesocket.Payload;
 import io.reactivesocket.ReactiveSocket;
 import io.reactivesocket.internal.rx.EmptySubscription;
+import io.reactivesocket.rx.Completable;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
@@ -266,4 +267,5 @@ public class LoadEstimatorDelegatingReactiveSocket implements DelegatingReactive
     public void close() throws Exception {
         child.close();
     }
+
 }
