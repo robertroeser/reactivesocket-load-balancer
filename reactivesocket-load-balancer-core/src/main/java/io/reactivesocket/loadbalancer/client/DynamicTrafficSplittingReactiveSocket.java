@@ -133,4 +133,10 @@ public class DynamicTrafficSplittingReactiveSocket implements ReactiveSocket {
         a.close();
         b.close();
     }
+
+    @Override
+    public void onShutdown(Completable c) {
+        a.onShutdown(c);
+        b.onShutdown(c);
+    }
 }

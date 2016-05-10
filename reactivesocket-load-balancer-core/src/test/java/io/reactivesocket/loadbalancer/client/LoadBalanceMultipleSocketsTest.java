@@ -89,7 +89,7 @@ public class LoadBalanceMultipleSocketsTest {
             .INSTANCE
             .call(new LocalServerReactiveSocketFactory.Config(LOCAL_SOCKET_NAME, new ConnectionSetupHandler() {
                 @Override
-                public RequestHandler apply(ConnectionSetupPayload setupPayload) throws SetupException {
+                public RequestHandler apply(ConnectionSetupPayload setupPayload, ReactiveSocket rs) throws SetupException {
                     return new RequestHandler() {
                         @Override
                         public Publisher<Payload> handleRequestResponse(Payload payload) {

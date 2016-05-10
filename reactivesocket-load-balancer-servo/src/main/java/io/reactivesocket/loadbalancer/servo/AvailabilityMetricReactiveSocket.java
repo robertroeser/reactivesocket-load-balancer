@@ -107,4 +107,9 @@ public class AvailabilityMetricReactiveSocket implements ReactiveSocket {
     public void close() throws Exception {
         child.close();
     }
+
+    @Override
+    public void onShutdown(Completable c) {
+        child.onShutdown(c);
+    }
 }
